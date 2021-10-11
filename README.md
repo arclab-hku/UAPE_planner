@@ -1,3 +1,3 @@
-# ahpf_planner: fast trajectory planning for dynamic environments
+# kFET_planner: fast trajectory planning for dynamic environments
 
 
