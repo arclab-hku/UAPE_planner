@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<launch>
+	<include file="$(find vrpn_client_ros)/launch/sample.launch"/>
+	<include file="$(find mavros)/launch/FJ005.launch"/>
+	<include file="$(find fuxi-planner)/launch/plc_filter_rgb.launch">
+	</include>
+        <include file="$(find fuxi-planner)/launch/rs_rgbd.launch"/>
+
+</launch>

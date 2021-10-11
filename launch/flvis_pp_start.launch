@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<launch>
+	<!--include file="$(find flvis)/launch/flvis_d435i_depth.launch">
+        </include-->
+	<include file="$(find flvis)/launch/flvis_d435_pixhawk_depth.launch">
+        </include>
+	<include file="$(find mavros)/launch/FJ005.launch"/>
+	<include file="$(find fuxi-planner)/launch/plc_filter_rgb.launch">
+	</include>
+</launch>
