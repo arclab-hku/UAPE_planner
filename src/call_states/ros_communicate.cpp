@@ -1,7 +1,6 @@
 /*
 This code includes all communication classes to MAVROS.
 */
-#pragma once
 #include <call_states/ros_communicate.h>
 
 void Listener::stateCb(const mavros_msgs::State::ConstPtr& msg)
@@ -32,7 +31,7 @@ void Listener::posCb(const geometry_msgs::PoseStamped::ConstPtr& msg)
 
 void Listener::wptsCb(const nav_msgs::Path::ConstPtr& msg)
 {
-
+ waypoint_update = true;
  nav_msgs::Path wpts = *msg;
  int len = wpts.poses.size();
  //MatrixXd waypoints_ins(len,3);
@@ -105,7 +104,7 @@ void Listener::imuCb(const sensor_msgs::Imu::ConstPtr& msg)
 void Listener::crdCb(const visualization_msgs::MarkerArray::ConstPtr& msg)
 { visualization_msgs::MarkerArray corridor = *msg;
   
-  corridor_update = true;
+  
   cout<< "corridor updated!" <<endl;
   int len = corridor.markers.size();
 //   len = (len-2)/5+2;
@@ -135,6 +134,45 @@ void Listener::crdCb(const visualization_msgs::MarkerArray::ConstPtr& msg)
  // cd_r = cd_r_ins;
 }
 
+void Listener::obsCb(const sensor_msgs::PointCloud2::ConstPtr & msg)
+{   sensor_msgs::PointCloud cloud;
+    sensor_msgs::convertPointCloud2ToPointCloud(*msg,cloud);
+    pcl_update = true;
+    obs.clear();
+    dynobs.time_stamp = cloud.header.stamp.sec + cloud.header.stamp.nsec * 1e-9;
+    dynobs.dyn_number = cloud.points.back().x;
+    dynobs.centers.clear();
+    dynobs.vels.clear();
+    dynobs.obs_sizes.clear();
+    dynobs.centers.resize(dynobs.dyn_number);
+    dynobs.vels.resize(dynobs.dyn_number);
+    dynobs.obs_sizes.resize(dynobs.dyn_number);
+    obs.resize(cloud.points.size()-dynobs.dyn_number*3-1);
+    cout << "point cloud received, dynamic number: " <<  cloud.points.back().x << "pcl size:" <<cloud.points.size()<<endl;
+    for (unsigned int i = 0; i < cloud.points.size()-1; i++)
+    {
+    if (i < obs.size())
+    {
+    obs[i](0) = cloud.points[i].x;
+    obs[i](1) = cloud.points[i].y;
+    obs[i](2) = cloud.points[i].z;
+    }
+    else if (i < obs.size() + dynobs.dyn_number)
+{   dynobs.centers[i-obs.size()](0) = cloud.points[i].x;
+    dynobs.centers[i-obs.size()](1) = cloud.points[i].y;
+    dynobs.centers[i-obs.size()](2) = cloud.points[i].z;}
+    else if (i < obs.size() + 2*dynobs.dyn_number)
+{   dynobs.vels[i-obs.size()-dynobs.dyn_number](0) = cloud.points[i].x;
+    dynobs.vels[i-obs.size()-dynobs.dyn_number](1) = cloud.points[i].y;
+    dynobs.vels[i-obs.size()-dynobs.dyn_number](2) = cloud.points[i].z;}
+    else
+{   dynobs.obs_sizes[i-obs.size()-2*dynobs.dyn_number](0) = cloud.points[i].x;
+    dynobs.obs_sizes[i-obs.size()-2*dynobs.dyn_number](1) = cloud.points[i].y;
+    dynobs.obs_sizes[i-obs.size()-2*dynobs.dyn_number](2) = cloud.points[i].z;}
+
+    }
+  
+}
 /*
 FCU Modes Requests
 */

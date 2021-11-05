@@ -1,5 +1,6 @@
 #!/usr/bin/env python2
-# rosbag record /corridor /mavros/imu/data /mavros/local_position/pose /mavros/local_position/velocity_local /wpts_path -o corridor 
+# rosbag record /corridor /mavros/imu/data /mavros/local_position/pose /mavros/local_position/velocity_local /wpts_path /points_global_all /dyn -o corridor
+ 
 
 import rospy
 
@@ -40,11 +41,11 @@ class waypoint_planner (object):
         # self.f2 = open("/home/" + getpass.getuser() +"/catkin_ws/src/AHPF_planner/data/"+time.strftime('%Y-%m-%d %H:%M:%S',time.localtime(time.time()))+"PV.txt", 'a')
         self.dr = 0.6
         self.uav_r = 0.25
-        self.det_range = 6
+        self.det_range = 7
         self.sample_dis = 0.6
         self.SA = 0.4
-        self.path_num = 3
-        self.path_num_max = 5
+        self.path_num = 6
+        self.path_num_max = 8
         self.start_height = 1.2 #m
         self.max_height = 3.5
         self.back_distance = 0.5
@@ -60,6 +61,7 @@ class waypoint_planner (object):
         self.rec_key_dis = 0.5
         self.rec_key_time = 0.5
         self.last_key_num = 0
+        self.wp_timecost = 0
         self.wp_time = 0
         self.last_dyn_time = 0
         self.last_pos = np.array([0,0,0])
@@ -158,7 +160,7 @@ class waypoint_planner (object):
                 v_dyn=np.array(data[-1-2*num_dyn:-num_dyn-1])
                  # print(np.array(data[-1-3*num_dyn:-2*num_dyn-1]) ,np.array(self.v_dyn))
                 # print(data[-1-3*num_dyn::])
-                c_dyn=np.array(data[-1-3*num_dyn:-2*num_dyn-1]) + np.array(v_dyn) * (self.wp_time+0.005+pcl_dt)
+                c_dyn=np.array(data[-1-3*num_dyn:-2*num_dyn-1]) + np.array(v_dyn) * (self.wp_timecost+0.005+pcl_dt)
                 d_dyn= np.array(data[-num_dyn-1:-1])*0.5 #0.5*np.mean(np.array(data[-num_dyn-1:-1])[:,0:2],axis=1)
                 
         #                print('r of mov:',0.5*np.array(data[-num_dyn-1:-1]))
@@ -563,7 +565,7 @@ class waypoint_planner (object):
         self.insert_keyframe (uav_pos,uav_ori,2)
         now = rospy.get_rostime()
         now = now.secs + now.nsecs*1e-9
-        uav_pos= ((self.wp_time+0.005+now-self.pcl_time)*self.line_vel + uav_pos)
+        uav_pos= ((self.wp_timecost+0.005+now-self.pcl_time)*self.line_vel + uav_pos)
         if len(self.dyn_obs[0,0]) != 0:
             self.dyn_obs[:,0,:] = self.dyn_obs[:,0,:] - uav_pos
         dis2goal = np.linalg.norm(self.global_goal-uav_pos)
@@ -603,7 +605,9 @@ class waypoint_planner (object):
             return "waypoint",np.array([uav_pos,goal+uav_pos]),[],[np.array([self.det_range*0.6]*2),np.array([uav_pos,goal+uav_pos])]
         pcl = (pcl - uav_pos)
         tree = KDTree(pcl, leaf_size=4)
-        if len(self.waypoints):
+
+
+        if len(self.waypoints) and time.time()-self.wp_time < 0.5:
             if self.goal_alter==0 and FET_utils_c.check_path(pcl,self.waypoints-uav_pos,self.SA) and np.linalg.norm(self.waypoints[0]-uav_pos) < self.det_range-1:
                 print("use old waypoints!")
                 self.goal_alter = 0
@@ -612,6 +616,14 @@ class waypoint_planner (object):
                 # t2 = time.time()
                 corridor = self.get_corridor(waypoints_pos,tree)
                 return "waypoint",self.waypoints,[],corridor
+            
+        if tree.query(np.array([goal]), k=1)[0].flatten()[0] < self.SA and dis2goal > self.det_range:
+            goal = (self.global_goal-uav_pos)/dis2goal*(self.det_range+self.SA)
+            print("goal is occupied, expand it!")
+            if tree.query(np.array([goal]), k=1)[0].flatten()[0] < self.SA:
+                print("goal is occupied, please reset it!")
+                goal = (self.global_goal-uav_pos)/dis2goal*(self.det_range-1)
+                #return "goback",[],[],corridor
         if_path=2
         path_num = self.path_num
         # print("V_A:",V_A)
@@ -625,7 +637,8 @@ class waypoint_planner (object):
                                                          self.idx,ids,[self.det_range,self.cam_h_ang,self.cam_v_ang,self.s_cam_pt,self.v_cam],
                                                          self.cam_ori,self.cam_rec,pose,self.max_height-uav_pos[2],self.dyn_obs,V_A)
             # waypoints = waypoints[0:-1]
-            self.wp_time = time.time()-t_start
+            self.wp_time = time.time()
+            self.wp_timecost = self.wp_time-t_start
             path_num += 1
             
         # self.global_pcl = pcl_global
@@ -637,11 +650,11 @@ class waypoint_planner (object):
         elif waypoints == []:
             waypoints_pos =[]
         else:
-            waypoints_pos = waypoints[0:-1,0,:]
+            waypoints_pos = waypoints[:,0,:]
         
         corridor = self.get_corridor(waypoints_pos,tree,uav_pos)
-        print("waypoint time cost:",self.wp_time)
-        self.wp_time = min( self.wp_time,0.03)
+        print("waypoint time cost:",self.wp_timecost)
+        self.wp_timecost = min( self.wp_timecost,0.03)
         if if_path==1:
             # waypoints = 
             print("directly fly to goal!",len(pcl),waypoints_pos + uav_pos)
@@ -710,7 +723,7 @@ class waypoint_planner (object):
                     break
         else:
             backpos = uav_pos
-        for i in range(10):
+        for i in range(1):
             self.set_local_position(backpos[0],backpos[1],backpos[2],pose[-1]) 
             rospy.sleep(0.05)
         return "waypoint"

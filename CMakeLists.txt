@@ -1,9 +1,11 @@
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.10.0)
 project(ahpf_planner)
 
-set(CMAKE_CXX_FLAGS "-std=c++11")
+ADD_COMPILE_OPTIONS(-std=c++14 )
+ADD_COMPILE_OPTIONS(-std=c++14 )
+set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -g")
 set(CMAKE_BUILD_TYPE "Release")
-set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -fPIC")
+#set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -fPIC")
 list(INSERT CMAKE_MODULE_PATH 0 ${CMAKE_CURRENT_LIST_DIR}/../cmake)
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
@@ -11,13 +13,24 @@ list(INSERT CMAKE_MODULE_PATH 0 ${CMAKE_CURRENT_LIST_DIR}/../cmake)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
+find_package(OpenCV REQUIRED)
+find_package(Eigen3 REQUIRED)
+find_package(PCL 1.7 REQUIRED)
+find_package(octomap REQUIRED)
+find_package(Boost REQUIRED COMPONENTS system filesystem)
+#find_package(Boost REQUIRED COMPONENTS system filesystem)
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
   std_msgs
+  visualization_msgs
   pcl_conversions
   pcl_ros
   roscpp
+  cv_bridge
+  octomap_ros
+  octomap_msgs
+  octomap_server
   sensor_msgs
   control_msgs
   gazebo_msgs
@@ -27,11 +40,12 @@ find_package(catkin REQUIRED COMPONENTS
   roslib
   std_srvs
   sensor_msgs
+  decomp_ros_utils
 )
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
-catkin_package()
+#catkin_package()
 
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
@@ -118,12 +132,11 @@ catkin_package()
 ## LIBRARIES: libraries you create in this project that dependent projects also need
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
-catkin_package(
-#  INCLUDE_DIRS include
-#  LIBRARIES path_plan
-#  CATKIN_DEPENDS roscpp rospy std_msgs
-#  DEPENDS system_lib
-)
+  catkin_package(
+ #   INCLUDE_DIRS include
+    INCLUDE_DIRS src
+    DEPENDS OpenCV Eigen Boost
+  )
 
 ###########
 ## Build ##
@@ -132,23 +145,32 @@ catkin_package(
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 include_directories(
-# include
-  ${catkin_INCLUDE_DIRS}
+    include
+    SYSTEM 
+    ${catkin_INCLUDE_DIRS} 
+    ${PROJECT_SOURCE_DIR}/include
+   # ${PROJECT_SOURCE_DIR}/include
+   # ${Eigen_INCLUDE_DIRS}
+  #  ${Eigen3_INCLUDE_DIRS} 
+#  ${catkin_INCLUDE_DIRS}
   ${CMAKE_CURRENT_SOURCE_DIR}
-  ${EIGEN3_INCLUDE_DIRS}
-  src
-)
+    ${Eigen3_INCLUDE_DIRS} 
+    ${EIGEN3_INCLUDE_DIRS}
+    ${PCL_INCLUDE_DIRS}
+    ${OCTOMAP_INCLUDE_DIRS}
+    ${DECOMP_UTIL_INCLUDE_DIRS}
+  ${CMAKE_CURRENT_SOURCE_DIR}/src
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/traj_opt
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/call_states)
+
 
 set(ENV_OFFB
-${CMAKE_CURRENT_SOURCE_DIR}/src/ros_missn.cpp 
-${CMAKE_CURRENT_SOURCE_DIR}/src/call_states/ros_communicate.cpp
+src/ros_missn.cpp 
+src/call_states/ros_communicate.cpp
 )
 
 set(RFR 
-${CMAKE_CURRENT_SOURCE_DIR}/src/planner_fast.cpp
-${CMAKE_CURRENT_SOURCE_DIR}/src/traj_min_jerk.hpp
-${CMAKE_CURRENT_SOURCE_DIR}/src/am_traj.hpp
-${CMAKE_CURRENT_SOURCE_DIR}/src/root_finder.hpp
+src/planner_fast.cpp
 )
 add_executable(vo_republish_rec
     src/vo_repub_rec.cpp)

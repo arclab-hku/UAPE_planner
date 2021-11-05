@@ -519,8 +519,8 @@ if __name__ == '__main__':
                 octo_pcl1=convert.distance_filter(octo_pcl1,4)+local_pos1
             
                 point22=convert.xyz_array_to_pointcloud2(octo_pcl1,'map',rospy.Time.now())
-            
-        if convert.pos is not None and (convert.pcl is not None) and (convert.ang_vel is not None): #and len(convert.pcl[0])>n_p  and convert.if_align == 1
+        #print((convert.pos is not None),(convert.pcl is not None),convert.ang_vel,convert.if_align)  
+        if convert.pos is not None and (convert.pcl is not None) and (convert.ang_vel is not None) and convert.if_align: #and len(convert.pcl[0])>n_p  and convert.if_align == 1
             convert.if_align = 0
             px,py,pz,r,p,y=convert.parse_local_position(convert.pos)
             r,p,y = np.array([r,p,y])+(convert.pcl_time - convert.pos_time)*convert.ang_vel
@@ -538,7 +538,7 @@ if __name__ == '__main__':
             pcl=np.array(convert.pcl_pt)
             pcl_c=pcl.copy()
 #        
-            if (abs(convert.ang_vel[0:2])<3).all() and np.linalg.norm(convert.ang_vel[0:2]) < math.pi/3 and len(pcl)>0:
+            if (abs(convert.ang_vel[0:2])<math.pi).all() and np.linalg.norm(convert.ang_vel[0:2]) < math.pi and len(pcl)>0:
                 if local_pos is 0 or ((local_pos is not 0) and np.linalg.norm(local_pos-np.array([px,py,pz]))<0.3):
                     pcl_c[:,0]=pcl[:,2]+xb  #distance from camera to uav center, xb yb zb are offset
                     pcl_c[:,1]=-pcl[:,0]+yb
@@ -679,6 +679,9 @@ if __name__ == '__main__':
                         vx_n = int((bb_x[1]-bb_x[0])/v_size)+2
                         vy_n = int((bb_y[1]-bb_y[0])/v_size)+2
                         vz_n = int((bb_z[1]-bb_z[0])/v_size)+2
+                        # print("size:",[vx_n,vy_n,vz_n,ft_vet_len])
+                        if max([vx_n,vy_n,vz_n]) > 1e2:
+                            continue
                         bb_space = np.zeros((vx_n,vy_n,vz_n,ft_vet_len))
                         bb_space1 = bb_space.copy()
                         obs_index2 = np.rint((clu_p2[i]-np.array([[bb_x[0],bb_y[0],bb_z[0]]]))/v_size)
@@ -944,10 +947,11 @@ if __name__ == '__main__':
                
                 pcl1=np.r_[pcl1,obsd]
             if len(pcl1)>0:
-                pcl1=np.r_[pcl1,np.array([[len(c_dyn1),0,0]])] #attach the number of dynamic obstacles
              #   if (pcl_c[:,2]<0.3).any():
                 if len(pcl_c):    
                     pcl1 = np.r_[pcl1,pcl_c[pcl_c[:,2]<0.3][::10]]
+                pcl1=np.r_[pcl1,np.array([[len(c_dyn1),0,0]])] #attach the number of dynamic obstacles
+                
             else:
                 pcl1=np.array([[0.0,0.0,0.0]])
 

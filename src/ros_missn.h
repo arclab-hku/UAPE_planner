@@ -24,9 +24,19 @@
 #include <visualization_msgs/MarkerArray.h>
 #include <visualization_msgs/Marker.h>
 #include <nav_msgs/Path.h>
+#include <sensor_msgs/PointCloud2.h>
+#include<traj_opt/se3_planner.h>
 using namespace std;
 using namespace Eigen;
 
+        // typedef struct dynobs_tmp
+        // {
+        //  vector<Vector3f> centers;
+        //  vector<Vector3f> obs_sizes;
+        //  vector<Vector3f> vels;
+        //  double time_stamp;
+        //  int dyn_number;
+        // };
 
 /*
 // Basic functions to mavros
@@ -36,8 +46,8 @@ class RosClass
     private:
         // ros
         ros::NodeHandle nh_;
-        ros::Subscriber state_sub_, exstate_sub_, pos_sub_, vel_sub_, imu_sub_,corridor_sub_,wpts_sub_;
-        ros::Publisher pos_pub_, raw_pub_, actuCtrl_pub_,traj_pub_,detail_traj_pub_;
+        ros::Subscriber state_sub_, exstate_sub_, pos_sub_, vel_sub_, imu_sub_,corridor_sub_,wpts_sub_,obs_sub_;
+        ros::Publisher pos_pub_, raw_pub_, actuCtrl_pub_,traj_pub_,detail_traj_pub_,polyh_pub_;
         ros::ServiceClient arming_client_, land_client_, set_mode_client_;
         ros::Rate rate;
 
@@ -65,13 +75,16 @@ class RosClass
     public:
         // waypoints
         Vector3d Start, End;
-        
+        vec_Vec3f *obs_pointer;
+        dynobs_tmp *dynobs_pointer;
+
         bool done;
         Matrix3d RCtrl;
         MatrixXd waypoints;
         MatrixXd cd_c;
         VectorXd cd_r;
-        bool corridor_update = false;
+        bool waypoint_update = false;
+        bool pcl_update = false;
         double Yaw;
         // init ros node
         RosClass(ros::NodeHandle *nodehandle, int FREQ);
@@ -88,11 +101,13 @@ class RosClass
             double Iz = 0.055225);
         Vector3d get_position();
         void set_cod_update(bool cod_update);
+        void set_pcl_update(bool pcl_update);
         //basic missions
         States launch(void);
         States step(double double_n, Vector3d pos,Vector3d vel,Vector3d acc, string mode);
         void pub_traj(MatrixXd pos, MatrixXd vel, MatrixXd acc);
         void land(Vector3d endp);
+        void pub_polyh (vec_E<Polyhedron3D> &polyhedra);
 };
 
 

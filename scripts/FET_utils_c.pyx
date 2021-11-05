@@ -177,7 +177,7 @@ def gen_angle_seed (double dis,double dr,int segs):
     seeds = []
     for i in range(segs):
         alpha = 2*asin(dis/(2*max(1,i)*dr))
-        itnum = int(max(1,np.rint(PI/2/alpha))+1)
+        itnum = int(max(1,np.rint(PI/1.1/alpha))+1)
         seed = []
         for j in range(1,itnum):
             # line_1= np.arange(0,-j-0.1,-1)*alpha
@@ -525,18 +525,24 @@ cdef get_dyn_node (np.ndarray[FTYPE_t, ndim=3] dyn_obs, np.ndarray[FTYPE_t, ndim
     print("C3:",c3,V_A[1]+6*T*c3,V_A[0],V_A[1])
     cdef np.ndarray[FTYPE_t, ndim=2] ct_center
     cdef double ct
+
+    return np.array([it,V_A[0]+2*T*c2+3*T**2*c3,V_A[1]+6*T*c3,[last_t+T]*3]),False
+
+
     if len(dyn_obs[0,0]) == 0:
-        return np.array([last_pos +  c1*T + c2*T**2 +  c3*T**3,V_A[0]+2*T*c2+3*T**2*c3,V_A[1]+6*T*c3,[last_t+T]*3]),False
+       # return np.array([last_pos +  c1*T + c2*T**2 +  c3*T**3,V_A[0]+2*T*c2+3*T**2*c3,V_A[1]+6*T*c3,[last_t+T]*3]),False
+       return np.array([it,V_A[0]+2*T*c2+3*T**2*c3,V_A[1]+6*T*c3,[last_t+T]*3]),False
     else:
         for i in range(1,int(T/0.1)+2):
             ct = 0.1*i
             ct_center = (ct+last_t)* dyn_obs[:,1,:] + dyn_obs[:,0,:]
             ct_pos = last_pos +  c1*ct + c2*ct**2 +  c3*ct**3
-            if ((abs(ct_pos - ct_center) - dyn_obs[:,2,:]) < 0).any():
+            if ((abs(ct_pos - ct_center) - dyn_obs[:,2,:]) < 0).all():
                 print("dyn check fail!",dyn_obs, ct_center,ct,ct_pos)
                 return nun,True
             if i == int(T/0.1)+1:
-                return np.array([ct_pos,V_A[0]+2*T*c2+3*T**2*c3,V_A[1]+6*T*c3,[last_t+T]*3]),False
+                #return np.array([ct_pos,V_A[0]+2*T*c2+3*T**2*c3,V_A[1]+6*T*c3,[last_t+T]*3]),False
+                return np.array([it,V_A[0]+2*T*c2+3*T**2*c3,V_A[1]+6*T*c3,[last_t+T]*3]),False
 @cython.boundscheck(False)
 @cython.nonecheck(False)
 @cython.cdivision(True) 
@@ -562,7 +568,7 @@ cpdef get_path (np.ndarray[FTYPE_t, ndim=2] pcl,np.ndarray[FTYPE_t, ndim=1] goal
     cdef np.ndarray[FTYPE_t, ndim=1] node,it
     cdef list final_list = []
     cdef list final_cost = []
-    cdef int i=0
+    
     t1 = time()
     L_goal,if_cld0,pts = line_sf(pcl,np.array([0.0,0.0,0.0]),goal,SA,1)
     if if_cld0:
@@ -732,14 +738,30 @@ cpdef get_path (np.ndarray[FTYPE_t, ndim=2] pcl,np.ndarray[FTYPE_t, ndim=1] goal
         # print("j3",j)
     t3=time()
     
-
-    for lnd in wpts[-1]:
-        cost = np.linalg.norm(lnd-goal) #cost,if_cld = line_sf (pcl,lnd,goal,SA)
-        # if not if_cld:
-        final_list.append(i)
-        final_cost.append(cost+sum(np.array(cost_list)[:,i]))
+    cdef int i
+    cdef int m=0
+    cdef int if_goal_reachable = 0
+   # print (len(wpts[:,-1,0,:]),len(cost_list[0]))
+    while (not if_goal_reachable and m<3):
+        i=0
+        for lnd in wpts[-1,:,0,:]:
+            #cost = np.linalg.norm(lnd-goal) 
+            cost,if_cld = line_sf(pcl,lnd,goal,SA,0)
         
-        i+=1
+            if not if_cld:
+                if_goal_reachable = 1
+                final_list.append(i)
+                final_cost.append(cost+sum(np.array(cost_list)[:,i]))
+        if (not if_goal_reachable):
+                
+            goal = (np.linalg.norm(goal)-SA)*goal/np.linalg.norm(goal)
+            if (m==2):
+                i= np.argmin(np.linalg.norm(wpts[-1,:,0,:]-goal,axis=1))
+                final_list.append(i)
+                final_cost.append(cost+sum(np.array(cost_list)[:,i]))
+                break
+            i+=1
+        m+=1
     
     print("path_ind,costs",path_ind,final_cost,len(wpts[-1]))
     

@@ -18,8 +18,23 @@
 #include <visualization_msgs/MarkerArray.h>
 #include <visualization_msgs/Marker.h>
 #include <nav_msgs/Path.h>
+#include <pcl/point_types.h>
+#include <pcl_conversions/pcl_conversions.h>
+#include <sensor_msgs/PointCloud2.h>
+#include <sensor_msgs/PointCloud.h>
+#include <sensor_msgs/point_cloud_conversion.h>
+#include<traj_opt/se3_planner.h>
 using namespace std;
 using namespace Eigen;
+
+       typedef struct dynobs_tmp
+        {
+         vector<Vector3d> centers;
+         vector<Vector3d> obs_sizes;
+         vector<Vector3d> vels;
+         double time_stamp;
+         int dyn_number;
+        }; 
 
 class Listener
 {
@@ -42,7 +57,10 @@ class Listener
         MatrixXd cd_c;
         VectorXd cd_r;
         MatrixXd waypoints;
-        bool corridor_update = false;
+        vec_Vec3f obs;
+        dynobs_tmp dynobs;
+        bool pcl_update = false;
+        bool waypoint_update = false;
         // // control states
         // //// linear states
         // Vector3d P_E, V_E, A_E, A_B;
@@ -58,4 +76,5 @@ class Listener
         void imuCb(const sensor_msgs::Imu::ConstPtr &);
         void crdCb(const visualization_msgs::MarkerArray::ConstPtr &);
         void wptsCb(const nav_msgs::Path::ConstPtr &);
+        void obsCb(const sensor_msgs::PointCloud2::ConstPtr &);
 };

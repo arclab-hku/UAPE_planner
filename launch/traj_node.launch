@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<launch>    
+
+ <node pkg="ahpf_planner" type="traj_node" name="traj_node" output="screen">
+   
+      <rosparam file="$(find ahpf_planner)/launch/gcopter_params.yaml" command="load" />
+  </node>
+</launch>

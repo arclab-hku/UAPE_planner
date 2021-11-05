@@ -1,4 +1,3 @@
-#pragma once
 #include <ros_missn.h>
 
 RosClass::RosClass(ros::NodeHandle* nodehandle, int FREQ):
@@ -7,25 +6,27 @@ RosClass::RosClass(ros::NodeHandle* nodehandle, int FREQ):
 {
     // subscribers
     //// mavros states
-    state_sub_ = nh_.subscribe<mavros_msgs::State>("mavros/state", 10, &Listener::stateCb, &listener_);
-    exstate_sub_ = nh_.subscribe<mavros_msgs::ExtendedState>("mavros/extended_state", 10, &Listener::estateCb, &listener_);
+    state_sub_ = nh_.subscribe<mavros_msgs::State>("/mavros/state", 10, &Listener::stateCb, &listener_);
+    exstate_sub_ = nh_.subscribe<mavros_msgs::ExtendedState>("/mavros/extended_state", 10, &Listener::estateCb, &listener_);
     //// control states
-    pos_sub_ = nh_.subscribe<geometry_msgs::PoseStamped>("mavros/local_position/pose", 1, &Listener::posCb, &listener_);
-    vel_sub_ = nh_.subscribe<geometry_msgs::TwistStamped>("mavros/local_position/velocity_local", 1, &Listener::velCb, &listener_);
-    imu_sub_ = nh_.subscribe<sensor_msgs::Imu>("mavros/imu/data", 1, &Listener::imuCb, &listener_);
+    pos_sub_ = nh_.subscribe<geometry_msgs::PoseStamped>("/mavros/local_position/pose", 1, &Listener::posCb, &listener_);
+    vel_sub_ = nh_.subscribe<geometry_msgs::TwistStamped>("/mavros/local_position/velocity_local", 1, &Listener::velCb, &listener_);
+    imu_sub_ = nh_.subscribe<sensor_msgs::Imu>("/mavros/imu/data", 1, &Listener::imuCb, &listener_);
     corridor_sub_ = nh_.subscribe<visualization_msgs::MarkerArray>("/corridor", 1, &Listener::crdCb, &listener_);
     wpts_sub_ = nh_.subscribe<nav_msgs::Path>("/wpts_path", 1, &Listener::wptsCb, &listener_);
+    obs_sub_ = nh_.subscribe<sensor_msgs::PointCloud2>("/points_global_all", 1, &Listener::obsCb, &listener_);
     // publishers
-    pos_pub_ = nh_.advertise<mavros_msgs::PositionTarget>("mavros/setpoint_raw/local", 1);
-    raw_pub_ = nh_.advertise<mavros_msgs::AttitudeTarget>("mavros/setpoint_raw/attitude", 1);
-    actuCtrl_pub_ = nh_.advertise<mavros_msgs::ActuatorControl>("mavros/actuator_control", 1);
+    pos_pub_ = nh_.advertise<mavros_msgs::PositionTarget>("/mavros/setpoint_raw/local", 1);
+    raw_pub_ = nh_.advertise<mavros_msgs::AttitudeTarget>("/mavros/setpoint_raw/attitude", 1);
+    actuCtrl_pub_ = nh_.advertise<mavros_msgs::ActuatorControl>("/mavros/actuator_control", 1);
     
     traj_pub_ = nh_.advertise<nav_msgs::Path>("/optimal_trajectory", 2);
     detail_traj_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("/detailed_optimal_trajectory", 2);
+    polyh_pub_ = nh_.advertise<decomp_ros_msgs::PolyhedronArray>("/polyhedra", 1);
     // fcu modes
-    arming_client_ = nh_.serviceClient<mavros_msgs::CommandBool>("mavros/cmd/arming");
-    land_client_ = nh_.serviceClient<mavros_msgs::CommandTOL>("mavros/cmd/land");
-    set_mode_client_ = nh_.serviceClient<mavros_msgs::SetMode>("mavros/set_mode");
+    arming_client_ = nh_.serviceClient<mavros_msgs::CommandBool>("/mavros/cmd/arming");
+    land_client_ = nh_.serviceClient<mavros_msgs::CommandTOL>("/mavros/cmd/land");
+    set_mode_client_ = nh_.serviceClient<mavros_msgs::SetMode>("/mavros/set_mode");
 
     // control frequency
     Freq_ = FREQ;
@@ -220,12 +221,20 @@ visualization_msgs::MarkerArray detail_traj;
             pos_sample.scale.z = 0.2;
             pos_sample.color.r = 1.0;
             pos_sample.color.a = 1.0;
+            pos_sample.lifetime = ros::Duration(0.5);
             detail_traj.markers.push_back(pos_sample);
  }
  traj_pub_.publish(traj);
  detail_traj_pub_.publish(detail_traj);
 }
 
+void RosClass::pub_polyh (vec_E<Polyhedron3D> &polyhedra)
+{
+    decomp_ros_msgs::PolyhedronArray poly_msg = DecompROS::polyhedron_array_to_ros(polyhedra);
+    poly_msg.header.frame_id = "map";
+    poly_msg.header.stamp = ros::Time::now();
+    polyh_pub_.publish(poly_msg);
+}
 
 void RosClass::land(Vector3d endp)
 {
@@ -291,7 +300,10 @@ States RosClass::get_state_(void)
     cd_c = listener_.cd_c;
     cd_r = listener_.cd_r;
     waypoints = listener_.waypoints;
-    corridor_update = listener_.corridor_update;
+    pcl_update = listener_.pcl_update;
+    waypoint_update = listener_.waypoint_update;
+    obs_pointer = &listener_.obs;
+    dynobs_pointer = &listener_.dynobs;
 //     cout << "state:" << state.P_E << state.Euler << listener_.flight_state <<endl;
     return state;
 }
@@ -323,8 +335,13 @@ States RosClass::get_state()
     state.Rate_E = state.Rota * state.Rate_Braw;
     cd_c = listener_.cd_c;
     cd_r = listener_.cd_r;
-    corridor_update = listener_.corridor_update;
+    waypoint_update = listener_.waypoint_update;
+    pcl_update = listener_.pcl_update;
     waypoints = listener_.waypoints;
+    obs_pointer = &listener_.obs;
+    dynobs_pointer = &listener_.dynobs;
+    // cout << "(rosmission)received obs points:" << obs_pointer->size()<<endl << obs_pointer <<endl;
+    // cout << "(rosmission)dynamic obs number:" << dynobs_pointer->dyn_number <<endl;
   //   cout<< "wpts callback 1:" << waypoints << endl;
 //     cout << "state:" << state.P_E << state.Euler << listener_.flight_state <<endl;
     
@@ -351,7 +368,11 @@ fcu modes
 */
 void RosClass::set_cod_update(bool cod_update)
 {
-   listener_.corridor_update = cod_update;}
+   listener_.waypoint_update = cod_update;}
+
+void RosClass::set_pcl_update(bool pcl_update)
+{
+   listener_.pcl_update = pcl_update;}
 bool RosClass::setArm_()
 {
     mavros_msgs::CommandBool arm_cmd;
@@ -394,3 +415,4 @@ bool RosClass::setMode_Offboard_()
     }
     return false;
 }
+
