@@ -10,20 +10,20 @@ void TrajectoryGenerator_fast::replan_traj(double MAXVEL,Vector3d &start,Vector3
    
   //  cout << "1" << endl;
 
-   cout << "waypoints:" <<waypoints << endl;
-   cout << "vi, ai:" << vi << endl << ai <<endl;
+   cout << "waypoints:\n" <<waypoints << endl;
+   cout << "vi, ai: \n" << vi << endl << ai <<endl;
    if (!if_config || full_trip)
    {wPs.clear();
-    if (waypoints.rows() < 3)
+    if (waypoints.cols() < 3)
    {
     wPs.emplace_back(start.transpose());
-    wPs.emplace_back(((start.transpose()+waypoints.row(1))/2));
-    wPs.emplace_back(waypoints.row(1));}
+    wPs.emplace_back(((start.transpose()+waypoints.col(1).transpose())/2));
+    wPs.emplace_back(waypoints.col(1).transpose());}
     else{
       wPs.emplace_back(start.transpose());
-      for (uint i = 1; i<waypoints.rows(); i++)
+      for (uint i = 1; i<waypoints.cols(); i++)
       {
-        wPs.emplace_back(waypoints.row(i).transpose());
+        wPs.emplace_back(waypoints.col(i).transpose());
       }}
    cout << "received obs points:" << obs_pointer->size()<<endl << obs_pointer <<endl;
 
@@ -79,10 +79,10 @@ dynobs_pointer = dynobs;
  double dt = 0.1;
  bool old_plhd_safe = true;
  Polyhedron3D poly = decompPolys[check_sfc_ind];
- for (uint i =0; i< waypoints.rows(); i++)  // check if neccessary to update corridor
+ for (uint i =0; i< waypoints.cols(); i++)  // check if neccessary to update corridor
  {
   //cout<<"(in func) check traj safe:\n"<<j<<endl<<total_t<<endl;
-  pos = waypoints.row(i);
+  pos = waypoints.col(i);
 
   Vec3f pt;
   pt[0] = pos(0);
@@ -106,15 +106,16 @@ dynobs_pointer = dynobs;
 //  vector<Vector3d> out_centers;
 
    wPs.clear();
-   if (waypoints.rows() < 3)
-   {wPs.emplace_back(start.transpose());
-    wPs.emplace_back(((start.transpose()+waypoints.row(1))/2));
-    wPs.emplace_back(waypoints.row(1));}
+    if (waypoints.cols() < 3)
+   {
+    wPs.emplace_back(start.transpose());
+    wPs.emplace_back(((start.transpose()+waypoints.col(1).transpose())/2));
+    wPs.emplace_back(waypoints.col(1).transpose());}
     else{
       wPs.emplace_back(start.transpose());
-      for (uint i = 1; i<waypoints.rows(); i++)
+      for (uint i = 1; i<waypoints.cols(); i++)
       {
-        wPs.emplace_back(waypoints.row(i).transpose());
+        wPs.emplace_back(waypoints.col(i).transpose());
       }}
 if (old_plhd_safe)
 { cout<<"old corridor is safe for new waypoints!"<<endl;
@@ -160,13 +161,26 @@ total_t = traj.getTotalDuration();
 
 inline bool TrajectoryGenerator_fast::dyn_safe_check(Vector3d pt, double check_t)
 // { return true; // for rosbag tests!!!
-  {double t_base = check_t - dynobs_pointer->time_stamp;
+  {
+  if (dynobs_pointer->dyn_number>0)
+  {
+  double t_base = check_t - dynobs_pointer->time_stamp;
+  Vector3d ct_center;
   for (int j =0; j<dynobs_pointer->dyn_number; j++)
   {
-    Vector3d ct_center = dynobs_pointer->centers[j] + t_base*dynobs_pointer->vels[j];
+    ct_center = dynobs_pointer->centers[j] + t_base*dynobs_pointer->vels[j];
     if ((((ct_center - pt).cwiseAbs() - dynobs_pointer->obs_sizes[j]*0.5).array()<0).all())
     {return false;}
-  }
+  }}
+  else if (dynobs_pointer->ball_number>0)
+  {
+  t_base = check_t - dynobs_pointer->ball_time_stamp;
+  for (int j =0; j<dynobs_pointer->ball_number; j++)
+  {
+    ct_center = dynobs_pointer->ballpos[j] + t_base*dynobs_pointer->ballvel[j] + 0.5*t_base*t_base*dynobs_pointer->ballacc[j];
+    if ((((ct_center - pt).cwiseAbs() - dynobs_pointer->ball_sizes[j]*0.5).array()<0).all())
+    {return false;}
+  }}
    return true;
 }
 void TrajectoryGenerator_fast::Traj_opt(const MatrixXd &iniState, const MatrixXd &finState, double plan_t)
@@ -196,7 +210,7 @@ void TrajectoryGenerator_fast::Traj_opt(const MatrixXd &iniState, const MatrixXd
     cout << "Final cost: " << finalObj << endl;
     cout << "Maximum Vel: " << traj.getMaxVelRate() << endl;
     cout << "Maximum Acc: " << traj.getMaxAccRate() << endl;
-    cout << "Total Duation: " << traj.getTotalDuration() << endl;
+    cout << "Total traj Duration: " << traj.getTotalDuration() << endl;
 }
 
 void TrajectoryGenerator_fast::gen_polyhedrons(vec_Vec3f *obs_pointer)
@@ -276,7 +290,7 @@ void TrajectoryGenerator_fast::gen_polyhedrons(vec_Vec3f *obs_pointer)
     }
     
     double compTime = chrono::duration_cast<chrono::microseconds>(chrono::high_resolution_clock::now() - tic).count() * 1.0e-3;
-    cout << "polyhedrons finished! time cost： " <<compTime<<endl;
+    cout << "polyhedrons finished! time cost (ms)： " <<compTime<<endl;
     }
 
 bool TrajectoryGenerator_fast::get_new_wps(Trajectory traj, const MatrixXd &cd_c, const VectorXd &cd_r)
@@ -638,7 +652,8 @@ void TrajectoryGenerator_fast::get_desire(double timee, Vector3d &p_d, Vector3d 
     p_d = traj.getPos(timee);
     v_d = traj.getVel(timee);
     a_d = traj.getAcc(timee);
-    p_d_yaw = traj.getPos(clip(timee+3.0,0,total_t-0.01));
+    p_d_yaw = traj.getPos(clip(timee+3.0,0.0,total_t-0.01));
+    // p_d_yaw = traj.getPos(total_t-0.1);
     // cout<<"pd,vd,ad,p_d_yaw: \n"<<p_d<<"\n"<<v_d<<"\n"<<a_d<<"\n"<<p_d_yaw<<endl;
 }
 

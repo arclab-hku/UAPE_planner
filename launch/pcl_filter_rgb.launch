@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<launch>
+<node pkg="dyn_object_tracker" type ="chen_filter_rgb" name="chen_filter_rgb" output="screen">
+        
+<param name="input"       type="string" value="/camera/depth/color/points"/> 
+<param name="cut_dis"       type="double" value="6.5"/> 
+<param name="voxel_size"       type="double" value="0.1"/> 
+
+<param name="n_r"       type="double" value="0.24"/> 
+<param name="n_n"       type="int" value="21"/> 
+<param name="std"       type="double" value="1.0"/> 
+
+<param name="use_current_time"       type="bool" value="false"/> 
+<!--param name="n_r"       type="double" value="0.25"/> 
+<param name="n_n"       type="int" value="1"/> 
+<param name="std"       type="double" value="2.5"/> 
+<param name="MK"       type="int" value="30"/--> 
+<!--param name="voxel_size"       type="double" value="0.03"/> 
+<param name="n_r"       type="double" value="0.07"/> 
+<param name="n_n"       type="int" value="6"/> 
+<param name="std"       type="double" value="2.0"/> 
+<param name="MK"       type="int" value="10"/--> 
+</node>
+</launch>

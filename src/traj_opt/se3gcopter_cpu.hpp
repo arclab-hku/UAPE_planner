@@ -490,6 +490,37 @@ private:
                 // cout << "mk322" <<endl;
                 }
 
+                for (int m=0; m<dynobs_pointer->ball_number; m++)
+                {
+                
+                // t_gap = t_now - dynobs_pointer->time_stamp;
+                // cout << "mk321" <<endl<<t_gap<<endl;
+                ct_center = dynobs_pointer->ballpos[m] +  t_gap*dynobs_pointer->ballvel[m] + 0.5* t_gap* t_gap*dynobs_pointer->ballacc[m];
+                Eigen::Vector3d check_vec=((ct_center - pos).cwiseAbs() - dynobs_pointer->ball_sizes[m]*0.5);
+                if ((check_vec.array()<0.0).all())
+                { double sa = dynobs_pointer->ball_sizes[m].squaredNorm()/4;
+                //Eigen::Vector3d dist_vec = pos - ct_center;
+                Eigen::Vector3d dist_vec = pos - ct_center;
+                double ellip_dist2 = dist_vec(2) * dist_vec(2) * inv_a2 + (dist_vec(0) * dist_vec(0) + dist_vec(1) * dist_vec(1)) * inv_b2;
+                double dist2_err = sa - ellip_dist2;
+                double dist2_err2 = dist2_err * dist2_err;
+                double dist2_err3 = dist2_err2 * dist2_err;
+
+                pena += wei_dyn * dist2_err3 * omg * step;
+
+                Eigen::Vector3d dJ_dP = wei_dyn * 3 * dist2_err2 * (-2) * Eigen::Vector3d(inv_b2 * dist_vec(0), inv_b2 * dist_vec(1), inv_a2 * dist_vec(2));  //gradient!
+                gdC.block<6, 3>(i * 6, 0) += beta0 * dJ_dP.transpose()* omg * step;
+                gdT(i) += omg * (wei_dyn * dist2_err3 / innerLoop + step * dJ_dP.dot(vel - dynobs_pointer->vels[m])*j/innerLoop);
+                double grad_prev_t = dJ_dP.dot(-dynobs_pointer->vels[m]);
+                if (i > 0)
+                {
+                    gdT.head(i).array() += omg * step * grad_prev_t;
+                }
+        
+      
+                }
+                // cout << "mk322" <<endl;
+                }
                 s1 += step;
             }
         }

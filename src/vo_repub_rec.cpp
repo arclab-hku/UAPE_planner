@@ -2,6 +2,7 @@
 #include "std_msgs/String.h"
 #include "geometry_msgs/TransformStamped.h"
 #include "geometry_msgs/PointStamped.h"
+#include "geometry_msgs/TwistStamped.h"
 #include "geometry_msgs/PoseStamped.h"
 #include "nav_msgs/Odometry.h"
 #include "nav_msgs/Path.h"
@@ -11,6 +12,7 @@
 using namespace  std;
 
 ros::Publisher repub;
+ros::Publisher velrepub;
 ros::Subscriber sub;
 bool enable_output_file;
 bool enable_repub;
@@ -20,6 +22,7 @@ std::string sub_topic;
 std::string sub_type;
 std::string repub_topic;
 std::string repub_type;
+bool if_pubvel;
 nav_msgs::Path path;
 int frame_id_path = 0;
 
@@ -114,11 +117,25 @@ void PoseStamped_callback(const geometry_msgs::PoseStampedConstPtr msg)
 
 void Odometry_callback(const nav_msgs::OdometryConstPtr msg)
 {
-
+//  cout<<"call_back, go to process"<<endl;
   process(msg->header.stamp,
           msg->pose.pose.position.x, msg->pose.pose.position.y, msg->pose.pose.position.z,
           msg->pose.pose.orientation.w, msg->pose.pose.orientation.x,
           msg->pose.pose.orientation.y, msg->pose.pose.orientation.z);
+  if (if_pubvel)
+{
+    geometry_msgs::TwistStamped vel;
+    vel.header.frame_id = msg->header.frame_id;
+    vel.header.stamp= msg->header.stamp;
+    vel.twist.linear = msg->twist.twist.linear;
+    vel.twist.angular = msg->twist.twist.angular;
+  //  vel.twist.angular.y = qx;
+  //  vel.twist.angular.z = qy;
+  //  vel.twist.linear.x = qz;
+  //  vel.twist.linear.y = y;
+  //  vel.twist.linear.z = z;
+    velrepub.publish(vel);
+}
 }
 
 
@@ -131,8 +148,9 @@ int main(int argc, char **argv)
   nh.getParam("sub_type",         sub_type);
   nh.getParam("repub_topic",      repub_topic);
   nh.getParam("repub_type",       repub_type);
+  nh.getParam("if_pubvel",       if_pubvel);
   nh.getParam("output_file_path", output_file_path);
-  cout << output_file_path << endl;
+//  cout << sub_topic << endl;
   if(output_file_path=="0")
   {
     enable_output_file = false;
@@ -151,6 +169,9 @@ int main(int argc, char **argv)
     if(repub_type == "PoseStamped")
     {
       repub = nh.advertise<geometry_msgs::PoseStamped>(repub_topic, 2);
+      if (if_pubvel)
+       {
+      velrepub = nh.advertise<geometry_msgs::TwistStamped>("/mavros/local_position/velocity", 2);}
     }
     if(repub_type == "Path")
     {

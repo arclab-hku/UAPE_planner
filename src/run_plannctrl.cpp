@@ -53,6 +53,7 @@ int main(int argc, char **argv)
             // Create a handle to this process node.
     ros::NodeHandle nh("~");
     RosClass flying(&nh, CtrlFreq);
+    flying.dynobs_pointer->ball_number = 0;
     Vector3d ct_pos,ct_vel,ct_acc;
     ct_pos.setZero();
     Vector3d p_d, v_d, a_d, p_d_yaw;

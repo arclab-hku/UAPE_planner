@@ -1,3 +1,0 @@
-<launch>
-	<node pkg="fuxi-planner" type ="chen_filter_rgb" name="chen_filter_rgb" args="input:=/camera/depth/color/points" output="screen"/>
-</launch>

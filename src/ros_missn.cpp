@@ -15,18 +15,23 @@ RosClass::RosClass(ros::NodeHandle* nodehandle, int FREQ):
     corridor_sub_ = nh_.subscribe<visualization_msgs::MarkerArray>("/corridor", 1, &Listener::crdCb, &listener_);
     wpts_sub_ = nh_.subscribe<nav_msgs::Path>("/wpts_path", 1, &Listener::wptsCb, &listener_);
     obs_sub_ = nh_.subscribe<sensor_msgs::PointCloud2>("/points_global_all", 1, &Listener::obsCb, &listener_);
+    odom_sub_ = nh_.subscribe<nav_msgs::Odometry>("/vicon_imu_ekf_odom", 1, &Listener::odomCb, &listener_);
+    traj_start_trigger_sub_ = nh_.subscribe<geometry_msgs::PoseStamped>("/traj_start_trigger", 10, &Listener::triggerCb, &listener_);
     // publishers
     pos_pub_ = nh_.advertise<mavros_msgs::PositionTarget>("/mavros/setpoint_raw/local", 1);
     raw_pub_ = nh_.advertise<mavros_msgs::AttitudeTarget>("/mavros/setpoint_raw/attitude", 1);
     actuCtrl_pub_ = nh_.advertise<mavros_msgs::ActuatorControl>("/mavros/actuator_control", 1);
     
     traj_pub_ = nh_.advertise<nav_msgs::Path>("/optimal_trajectory", 2);
+    path_pub_ = nh_.advertise<nav_msgs::Path>("/kino_path", 2);
     detail_traj_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("/detailed_optimal_trajectory", 2);
     polyh_pub_ = nh_.advertise<decomp_ros_msgs::PolyhedronArray>("/polyhedra", 1);
+    poscmd_pub_ = nh_.advertise<quadrotor_msgs::PositionCommand>("/position_cmd", 10);
     // fcu modes
     arming_client_ = nh_.serviceClient<mavros_msgs::CommandBool>("/mavros/cmd/arming");
     land_client_ = nh_.serviceClient<mavros_msgs::CommandTOL>("/mavros/cmd/land");
     set_mode_client_ = nh_.serviceClient<mavros_msgs::SetMode>("/mavros/set_mode");
+    
 
     // control frequency
     Freq_ = FREQ;
@@ -180,7 +185,33 @@ States RosClass::step(double double_n, Vector3d pos,Vector3d vel,Vector3d acc, s
     
         pos_pub_.publish(pos_target);
     }
+    else if (mode == "pos_vel_acc_yaw_c")
+    {
+       quadrotor_msgs::PositionCommand pos_target;
+      
+       // pos_target.header = Header()
+        pos_target.header.frame_id = "map";
+        pos_target.header.stamp = ros::Time::now();
+
+        pos_target.yaw = double_n;
+        geometry_msgs::Point pos1;
+        pos1.x = pos(0);
+        pos1.y = pos(1);
+        pos1.z = pos(2);
+        geometry_msgs::Vector3 vel1;
+        vel1.x = vel(0);
+        vel1.y = vel(1);
+        vel1.z = vel(2);
+        geometry_msgs::Vector3 accel;
+        accel.x = acc(0);
+        accel.y = acc(1);
+        accel.z = acc(2);
+        pos_target.position = pos1;
+        pos_target.velocity = vel1;
+        pos_target.acceleration = accel;
     
+        poscmd_pub_.publish(pos_target);
+    } 
     ros::spinOnce();
    // rate.sleep();
 
@@ -190,11 +221,25 @@ States RosClass::step(double double_n, Vector3d pos,Vector3d vel,Vector3d acc, s
 
     return state;
 }
+void RosClass::pub_path(vector<Eigen::Vector3d> &waypoints)
+{nav_msgs::Path traj;
+        traj.header.frame_id = "map";
+        traj.header.stamp = ros::Time::now();
+ for (int i =0; i< waypoints.size(); i++)
+    {geometry_msgs::PoseStamped pose;
+    pose.header.frame_id = "map";
+//    pose.header.stamp = rospy.Time.now()
+    pose.pose.position.x = waypoints[i](0);
+    pose.pose.position.y = waypoints[i](1);
+    pose.pose.position.z = waypoints[i](2);
 
+    traj.poses.push_back(pose);}
+    path_pub_.publish(traj);
+}
 void RosClass::pub_traj(MatrixXd pos, MatrixXd vel, MatrixXd acc) 
 {
         nav_msgs::Path traj;
-visualization_msgs::MarkerArray detail_traj;
+        visualization_msgs::MarkerArray detail_traj;
         traj.header.frame_id = "map";
         traj.header.stamp = ros::Time::now();
         
@@ -304,6 +349,8 @@ States RosClass::get_state_(void)
     waypoint_update = listener_.waypoint_update;
     obs_pointer = &listener_.obs;
     dynobs_pointer = &listener_.dynobs;
+    pcl_pointer = &listener_.cloud;
+    trigger = listener_.trigger;
 //     cout << "state:" << state.P_E << state.Euler << listener_.flight_state <<endl;
     return state;
 }
@@ -340,6 +387,9 @@ States RosClass::get_state()
     waypoints = listener_.waypoints;
     obs_pointer = &listener_.obs;
     dynobs_pointer = &listener_.dynobs;
+    // cout << "11"<<endl;
+    pcl_pointer = &listener_.cloud;
+    trigger = listener_.trigger;
     // cout << "(rosmission)received obs points:" << obs_pointer->size()<<endl << obs_pointer <<endl;
     // cout << "(rosmission)dynamic obs number:" << dynobs_pointer->dyn_number <<endl;
   //   cout<< "wpts callback 1:" << waypoints << endl;

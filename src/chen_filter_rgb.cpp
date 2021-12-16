@@ -14,11 +14,16 @@
 #include "pcl_ros/point_cloud.h"
 #include <pcl/filters/radius_outlier_removal.h>
 #include <pcl/filters/passthrough.h>
+#include <pcl/filters/statistical_outlier_removal.h>
 #include <pcl/ModelCoefficients.h>
 #include <pcl/point_types.h>
 #include <pcl/io/pcd_io.h>
 #include <pcl/filters/extract_indices.h>
 #include <pcl/filters/voxel_grid.h>
+#include <iostream>
+#include <string>
+
+using namespace std;
 
 // 定义点云类型
 typedef pcl::PointCloud<pcl::PointXYZRGB> PointCloud;
@@ -28,8 +33,14 @@ typedef pcl::PointXYZ PointType;
 typedef pcl::PointCloud<pcl::Normal> Normal;
 
 ros::Publisher pub;
-
-
+string input;
+double cut_dis;
+double voxel_size;
+double n_r;
+int n_n;
+int MK;
+double stdthr;
+bool use_time;
 
 
 void
@@ -46,31 +57,39 @@ cloud_cb (const sensor_msgs::PointCloud2ConstPtr& cloud_msg)
     PointCloud::Ptr    cloud_filtered   (new PointCloud);
     PointCloud::Ptr    voxel_filtered   (new PointCloud);
     PointCloud::Ptr    r_filtered   (new PointCloud);
+    PointCloud::Ptr    sta_filtered   (new PointCloud);
 
 
     // Perform the actual filtering-1
     pcl::PassThrough<pcl::PointXYZRGB> pass;
     pass.setInputCloud (raw_cloud);
     pass.setFilterFieldName ("z");
-    pass.setFilterLimits (0, 6.0);
+    pass.setFilterLimits (0, cut_dis);
     pass.filter (*cloud_filtered);
+
+
+
 
 
     // Perform the actual filtering-2
     pcl::VoxelGrid<pcl::PointXYZRGB> sor;
     sor.setInputCloud (cloud_filtered);
-    sor.setLeafSize (0.1, 0.1, 0.1);
+    sor.setLeafSize (voxel_size,voxel_size, voxel_size);
     sor.filter (*voxel_filtered);
 
 
     // Perform the actual filtering-3
     pcl::RadiusOutlierRemoval<pcl::PointXYZRGB> outrem;
     outrem.setInputCloud(voxel_filtered);
-    outrem.setRadiusSearch(0.22);
-    outrem.setMinNeighborsInRadius (7);
+    outrem.setRadiusSearch(n_r);
+    outrem.setMinNeighborsInRadius (n_n);
     outrem.filter (*r_filtered);
 
-
+    pcl::StatisticalOutlierRemoval<pcl::PointXYZRGB> sta;
+    sta.setInputCloud(r_filtered);
+    sta.setMeanK(MK);
+    sta.setStddevMulThresh(stdthr);
+    sta.filter(*sta_filtered);
 
 
     // Convert to ROS data type
@@ -80,7 +99,11 @@ cloud_cb (const sensor_msgs::PointCloud2ConstPtr& cloud_msg)
 //    pcl::PointCloud<pcl::PointXYZ>::Ptr temp_cloud(new pcl::PointCloud<pcl::PointXYZ>);
 //    pcl::fromPCLPointCloud2(pcl_pc2,*temp_cloud);
     // Publish the data
-    pub.publish (r_filtered);
+    if (use_time)
+    {
+      pcl_conversions::toPCL(ros::Time::now(), sta_filtered->header.stamp);
+    }
+    pub.publish (sta_filtered);
 
 }
 
@@ -89,10 +112,19 @@ main (int argc, char** argv)
 {
   // Initialize ROS
   ros::init (argc, argv, "chen_filter");
-  ros::NodeHandle nh;
-
+  ros::NodeHandle nh("~");
+  nh.getParam("input", input);
+  nh.getParam("cut_dis", cut_dis);
+  nh.getParam("voxel_size", voxel_size);
+  nh.getParam("n_r", n_r);
+  nh.getParam("n_n", n_n);
+  nh.getParam("MK", MK);
+  nh.getParam("std", stdthr);
+  nh.getParam("use_current_time", use_time);
+//  cout<<""
   // Create a ROS subscriber for the input point cloud 输入
-  ros::Subscriber sub = nh.subscribe<sensor_msgs::PointCloud2> ("input", 1, cloud_cb);
+//  cout<<"input topic:"<<input<<endl<<cut_dis<<endl;
+  ros::Subscriber sub = nh.subscribe<sensor_msgs::PointCloud2> (input, 1, cloud_cb);
 
   // Create a ROS publisher for the output point cloud 输出
   pub = nh.advertise<pcl::PointCloud<pcl::PointXYZRGB> >("/filtered_RadiusOutlierRemoval", 1);

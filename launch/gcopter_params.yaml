@@ -4,7 +4,7 @@
 # 14 12
 #18 16
 # 21 18
-
+goal: [-15.0,-15.0,1.3]
 ScaleSI:                    1.0
 MapHeight:                  2.8
 PolyhedronBox:              [4.0, 4.0, 2.5]
@@ -14,12 +14,12 @@ QdIntervals:                8
 HorizHalfLen:               0.0
 VertHalfLen:                0.0
 SafeMargin:                 0.0
-VelMax:                     2.0
-ThrustAccMin:               5.0
-ThrustAccMax:               12.0
+VelMax:                     15.0
+ThrustAccMin:               12.0
+ThrustAccMax:               13.0
 BodyRateMax:                1.0
 GravAcc:                    9.81
-PenaltyPVTB:                [100000.0, 50000.0, 10000.0, 10000.0]
+PenaltyPVTB:                [60000.0, 50000.0, 10000.0, 10000.0]   #P: convex hull  V: velocity T: thrust  B:body rate
 UseC2Diffeo:                true
 OptRelTol:                  1.0e-4
 TrajVizWidth:               1.0
@@ -27,3 +27,19 @@ TrajVizRGB:                 [0.8, 0.0, 0.0]
 #RouteStoragePath:           './data/office_easy_1.txt'
 EllipsoidVizRGBA:            [1.0, 0.0, 1.0, 1.0]
 #QuadrotorPath:              '/misc/data/quadcopter.dae'
+sfck_t: 0.2  #should be smaller than horizon*0.5/velmax
+#kinodynamic path searching
+search/max_tau: 0.6
+search/init_max_tau: 0.8
+
+search/w_time: 10.0
+search/horizon: 7.0
+search/lambda_heu: 5.0
+search/resolution_astar: 0.2
+search/time_resolution: 0.8
+search/margin: 0.2
+search/allocate_num: 100000
+search/check_num: 5
+search/optimistic: true
+search/vel_margin: 0.0
+search/safety_radius: 0.25

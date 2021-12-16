@@ -28,7 +28,10 @@ void Listener::posCb(const geometry_msgs::PoseStamped::ConstPtr& msg)
     Quat = Quat.normalized();
     Rota = Quaternion2Rota(Quat);    //from body to earth
 }
-
+void Listener::triggerCb(const geometry_msgs::PoseStamped::ConstPtr& msg)
+{
+    trigger = true;
+}
 void Listener::wptsCb(const nav_msgs::Path::ConstPtr& msg)
 {
  waypoint_update = true;
@@ -134,11 +137,32 @@ void Listener::crdCb(const visualization_msgs::MarkerArray::ConstPtr& msg)
  // cd_r = cd_r_ins;
 }
 
+void Listener::odomCb(const nav_msgs::Odometry::ConstPtr & msg)
+    {
+        V_E(0) = msg->twist.twist.linear.x;
+        V_E(1) = msg->twist.twist.linear.y;
+        V_E(2) = msg->twist.twist.linear.z;
+
+            // position
+        P_E(0) = msg->pose.pose.position.x;
+        P_E(1) = msg->pose.pose.position.y;
+        P_E(2) = msg->pose.pose.position.z;
+        // cout<<P_E<<endl;
+        // orientation
+        Quat.x() = msg->pose.pose.orientation.x;
+        Quat.y() = msg->pose.pose.orientation.y;
+        Quat.z() = msg->pose.pose.orientation.z;
+        Quat.w() = msg->pose.pose.orientation.w;
+        Quat = Quat.normalized();
+        Rota = Quaternion2Rota(Quat);    //from body to earth
+    }
 void Listener::obsCb(const sensor_msgs::PointCloud2::ConstPtr & msg)
 {   sensor_msgs::PointCloud cloud;
+//    {cout<<"convert!"<<endl;
     sensor_msgs::convertPointCloud2ToPointCloud(*msg,cloud);
     pcl_update = true;
     obs.clear();
+    // obs.resize(cloud.points.size());
     dynobs.time_stamp = cloud.header.stamp.sec + cloud.header.stamp.nsec * 1e-9;
     dynobs.dyn_number = cloud.points.back().x;
     dynobs.centers.clear();
@@ -148,8 +172,8 @@ void Listener::obsCb(const sensor_msgs::PointCloud2::ConstPtr & msg)
     dynobs.vels.resize(dynobs.dyn_number);
     dynobs.obs_sizes.resize(dynobs.dyn_number);
     obs.resize(cloud.points.size()-dynobs.dyn_number*3-1);
-    cout << "point cloud received, dynamic number: " <<  cloud.points.back().x << "pcl size:" <<cloud.points.size()<<endl;
-    for (unsigned int i = 0; i < cloud.points.size()-1; i++)
+    // cout << "point cloud received, dynamic number: " <<  cloud.points.back().x << "pcl size:" <<cloud.points.size()<<endl;
+    for (size_t i = 0; i < cloud.points.size()-1; i++)
     {
     if (i < obs.size())
     {
@@ -172,6 +196,34 @@ void Listener::obsCb(const sensor_msgs::PointCloud2::ConstPtr & msg)
 
     }
   
+}
+void ballCb(const ??::??::ConstPtr & msg)
+{
+    dynobs.ball_number = msg.states.size();
+    dynobs.ballpos.clear();
+    dynobs.ballpos.resize(dynobs.ball_number);
+    dynobs.ballvel.clear();
+    dynobs.ballvel.resize(dynobs.ball_number);
+    dynobs.ballacc.clear();
+    dynobs.ballacc.resize(dynobs.ball_number);
+    dynobs.ball_sizes.clear();
+    dynobs.ball_sizes.resize(dynobs.ball_number);
+    dynobs.ball_time_stamp = msg.header.stamp.sec + msg.header.stamp.nsec * 1e-9;
+    for (size_t i = 0; i < dynobs.ball_number; i++)
+    {
+    dynobs.ballpos[i](0) = msg.states[i].position.x;
+    dynobs.ballpos[i](1) = msg.states[i].position.y;
+    dynobs.ballpos[i](2) = msg.states[i].position.z;
+    dynobs.ballvel[i](0) = msg.states[i].velocity.x;
+    dynobs.ballvel[i](1) = msg.states[i].velocity.y;
+    dynobs.ballvel[i](2) = msg.states[i].velocity.z;
+    dynobs.ballacc[i](0) = msg.states[i].acceleration.x;
+    dynobs.ballacc[i](1) = msg.states[i].acceleration.y;
+    dynobs.ballacc[i](2) = msg.states[i].acceleration.z;
+    dynobs.ball_sizes[i](0) = 0.4;
+    dynobs.ball_sizes[i](1) = 0.4;
+    dynobs.ball_sizes[i](2) = 0.4;
+    }
 }
 /*
 FCU Modes Requests
