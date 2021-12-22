@@ -1,9 +1,0 @@
-<launch>
-	<!--include file="$(find ccmapping)/launch/bag.launch">
-	</include-->
-	<include file="$(find mlmapping)/launch/mlmapping_bag_sim.launch">
-	</include>
-	<node pkg="AHPF_planner" type ="plc_point2_mlst.py" name="plc_point2_mlst" output="screen"/>
-	<node pkg="AHPF_planner" type ="global_planner_mlst.py" name="global_planner_mlst" output="screen"/>
-
-</launch>

@@ -1,7 +1,0 @@
-<launch>
-	<include file="$(find mlmapping)/launch/bag.launch">
-	</include>
-	<node pkg="fuxi-planner" type ="plc_point2_ccst.py" name="plc_point2_ccst" output="screen"/>
-	<node pkg="fuxi-planner" type ="global_planner_ccst.py" name="global_planner_ccst" output="screen"/>
-
-</launch>
