@@ -164,7 +164,11 @@ void Listener::obsCb(const sensor_msgs::PointCloud2::ConstPtr & msg)
     obs.clear();
     // obs.resize(cloud.points.size());
     dynobs.time_stamp = cloud.header.stamp.sec + cloud.header.stamp.nsec * 1e-9;
-    dynobs.dyn_number = cloud.points.back().x;
+    if (cloud.points.back().y + cloud.points.back().z > 1e-5)
+    {dynobs.dyn_number = 0;}
+    else
+    {
+    dynobs.dyn_number = cloud.points.back().x;}
     dynobs.centers.clear();
     dynobs.vels.clear();
     dynobs.obs_sizes.clear();

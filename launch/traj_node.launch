@@ -4,5 +4,6 @@
  <node pkg="ahpf_planner" type="traj_node" name="traj_node" output="screen">
    
       <rosparam file="$(find ahpf_planner)/launch/planning_params.yaml" command="load" />
+      <remap from="/points_global_all" to="/camera/depth/color/points"/>
   </node>
 </launch>
