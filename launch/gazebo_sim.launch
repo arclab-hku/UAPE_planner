@@ -12,7 +12,10 @@
     <arg name="my_vehicle" default="iris_d435"/>
     <!--arg name="world" default="$(find ahpf_planner)/worlds/test1_actor.world"/-->
     <!--arg name="world" default="$(find ahpf_planner)/worlds/test2_static.world"/-->
-    <arg name="world" default="$(find ahpf_planner)/worlds/test1_moreactor.world"/>
+     
+    <arg name="world" default="$(find ahpf_planner)/gazebo/worlds/test1_actor.world"/>
+    <!--arg name="world" default="$(find dyn_object_tracker)/worlds/test2_static.world"/-->
+    <!--arg name="world" default="$(find dyn_object_tracker)/worlds/test1_moreactor.world"/-->
     <!--arg name="world" default="$(find ahpf_planner)/worlds/empty.world"/-->
     <arg name="sdf" default="$(find ahpf_planner)/gazebo/models/$(arg my_vehicle)/$(arg my_vehicle).sdf"/>
 

@@ -5,6 +5,8 @@ ADD_COMPILE_OPTIONS(-std=c++14 )
 ADD_COMPILE_OPTIONS(-std=c++14 )
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -g")
 set(CMAKE_BUILD_TYPE "Release")
+#set(CMAKE_PREFIX_PATH "/usr/lib/x86_64-linux-gnu/cmake/gazebo/")
+set(gazebo_DIR "/usr/lib/x86_64-linux-gnu/cmake/gazebo/")
 #set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -fPIC")
 list(INSERT CMAKE_MODULE_PATH 0 ${CMAKE_CURRENT_LIST_DIR}/../cmake)
 ## Compile as C++11, supported in ROS Kinetic and newer
@@ -16,11 +18,11 @@ list(INSERT CMAKE_MODULE_PATH 0 ${CMAKE_CURRENT_LIST_DIR}/../cmake)
 find_package(OpenCV REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(PCL 1.7 REQUIRED)
-find_package(octomap REQUIRED)
 find_package(Boost REQUIRED COMPONENTS system filesystem)
 #find_package(Boost REQUIRED COMPONENTS system filesystem)
 find_package(catkin REQUIRED COMPONENTS
   roscpp
+  gazebo REQUIRED
   rospy
   std_msgs
   visualization_msgs
@@ -28,9 +30,6 @@ find_package(catkin REQUIRED COMPONENTS
   pcl_ros
   roscpp
   cv_bridge
-  octomap_ros
-  octomap_msgs
-  octomap_server
   sensor_msgs
   control_msgs
   gazebo_msgs
@@ -41,6 +40,7 @@ find_package(catkin REQUIRED COMPONENTS
   std_srvs
   sensor_msgs
   decomp_ros_utils
+  obj_state_msgs
 )
 
 ## System dependencies are found with CMake's conventions
@@ -136,6 +136,12 @@ find_package(catkin REQUIRED COMPONENTS
  #   INCLUDE_DIRS include
     INCLUDE_DIRS src
     DEPENDS OpenCV Eigen Boost
+    DEPENDS
+    roscpp
+    gazebo_ros
+    image_transport
+    camera_info_manager
+    sensor_msgs
   )
 
 ###########
@@ -153,24 +159,42 @@ include_directories(
    # ${Eigen_INCLUDE_DIRS}
   #  ${Eigen3_INCLUDE_DIRS} 
 #  ${catkin_INCLUDE_DIRS}
+
+    ${GAZEBO_INCLUDE_DIRS}
   ${CMAKE_CURRENT_SOURCE_DIR}
     ${Eigen3_INCLUDE_DIRS} 
     ${EIGEN3_INCLUDE_DIRS}
     ${PCL_INCLUDE_DIRS}
     ${OCTOMAP_INCLUDE_DIRS}
     ${DECOMP_UTIL_INCLUDE_DIRS}
+    ${CURSES_INCLUDE_DIR}
   ${CMAKE_CURRENT_SOURCE_DIR}/src
   ${CMAKE_CURRENT_SOURCE_DIR}/src/traj_opt
   ${CMAKE_CURRENT_SOURCE_DIR}/src/call_states)
 
+link_directories(${GAZEBO_LIBRARY_DIRS})
+
+add_library(realsense_gazebo_plugin
+    src/RealSensePlugin.cpp
+    src/gazebo_ros_realsense.cpp
+    )
+
+target_link_libraries(realsense_gazebo_plugin
+    ${catkin_LIBRARIES}
+    ${GAZEBO_LIBRARIES})
+add_dependencies(realsense_gazebo_plugin
+    ${catkin_EXPORTED_TARGETS})
 
 set(ENV_OFFB
 src/ros_missn.cpp 
 src/call_states/ros_communicate.cpp
+
 )
+
 
 set(RFR 
 src/planner_fast.cpp
+src/path_searching/src/kinodynamic_astar.cpp
 )
 add_executable(vo_republish_rec
     src/vo_repub_rec.cpp)
@@ -179,7 +203,8 @@ target_link_libraries(vo_republish_rec
 add_executable(chen_filter_rgb src/chen_filter_rgb.cpp)
 add_executable(
 traj_node
-  src/run_plannctrl.cpp 
+ # src/run_plannctrl.cpp 
+  src/run_plannctrl_astar.cpp
   src/Tools.cpp
   ${RFR}
   ${ENV_OFFB})

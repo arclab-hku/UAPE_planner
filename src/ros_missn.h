@@ -18,14 +18,18 @@
 #include <mavros_msgs/CommandTOL.h>
 #include <mavros_msgs/SetMode.h>
 #include <geometry_msgs/Point.h>
-#include <geometry_msgs/Point.h>
+#include <geometry_msgs/Vector3.h>
 #include <call_states/ros_communicate.h>
 #include <Tools.h>
 #include <visualization_msgs/MarkerArray.h>
 #include <visualization_msgs/Marker.h>
 #include <nav_msgs/Path.h>
+#include <nav_msgs/Odometry.h>
 #include <sensor_msgs/PointCloud2.h>
+#include <sensor_msgs/PointCloud.h>
 #include<traj_opt/se3_planner.h>
+#include<quadrotor_msgs/PositionCommand.h>
+#include<obj_state_msgs/ObjectsStates.h>
 using namespace std;
 using namespace Eigen;
 
@@ -46,8 +50,8 @@ class RosClass
     private:
         // ros
         ros::NodeHandle nh_;
-        ros::Subscriber state_sub_, exstate_sub_, pos_sub_, vel_sub_, imu_sub_,corridor_sub_,wpts_sub_,obs_sub_;
-        ros::Publisher pos_pub_, raw_pub_, actuCtrl_pub_,traj_pub_,detail_traj_pub_,polyh_pub_;
+        ros::Subscriber state_sub_, exstate_sub_, pos_sub_, vel_sub_, imu_sub_,corridor_sub_,wpts_sub_,obs_sub_,odom_sub_,traj_start_trigger_sub_,ball_sub_;
+        ros::Publisher pos_pub_, raw_pub_, actuCtrl_pub_,traj_pub_,detail_traj_pub_,polyh_pub_,path_pub_,poscmd_pub_,ball_vispub_;
         ros::ServiceClient arming_client_, land_client_, set_mode_client_;
         ros::Rate rate;
 
@@ -85,7 +89,9 @@ class RosClass
         VectorXd cd_r;
         bool waypoint_update = false;
         bool pcl_update = false;
+        bool trigger = false;
         double Yaw;
+        sensor_msgs::PointCloud *pcl_pointer;
         // init ros node
         RosClass(ros::NodeHandle *nodehandle, int FREQ);
         States get_state();
@@ -106,8 +112,10 @@ class RosClass
         States launch(void);
         States step(double double_n, Vector3d pos,Vector3d vel,Vector3d acc, string mode);
         void pub_traj(MatrixXd pos, MatrixXd vel, MatrixXd acc);
+        void pub_path(vector<Eigen::Vector3d> &waypoints);
         void land(Vector3d endp);
         void pub_polyh (vec_E<Polyhedron3D> &polyhedra);
+        void pub_ballstates ();
 };
 
 

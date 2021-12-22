@@ -375,7 +375,7 @@
          <timeConstantUp>0.0125</timeConstantUp>
          <timeConstantDown>0.025</timeConstantDown>
          <maxRotVelocity>1100</maxRotVelocity>
-         <motorConstant>1.84e-05</motorConstant>
+         <motorConstant>2.0e-05</motorConstant>
          <momentConstant>0.06</momentConstant>
          <commandSubTopic>/gazebo/command/motor_speed</commandSubTopic>
          <motorNumber>0</motorNumber>
@@ -392,7 +392,7 @@
          <timeConstantUp>0.0125</timeConstantUp>
          <timeConstantDown>0.025</timeConstantDown>
          <maxRotVelocity>1100</maxRotVelocity>
-         <motorConstant>1.84e-05</motorConstant>
+         <motorConstant>2.0e-05</motorConstant>
          <momentConstant>0.06</momentConstant>
          <commandSubTopic>/gazebo/command/motor_speed</commandSubTopic>
          <motorNumber>1</motorNumber>
@@ -409,7 +409,7 @@
          <timeConstantUp>0.0125</timeConstantUp>
          <timeConstantDown>0.025</timeConstantDown>
          <maxRotVelocity>1100</maxRotVelocity>
-         <motorConstant>1.84e-05</motorConstant>
+         <motorConstant>2.0e-05</motorConstant>
          <momentConstant>0.06</momentConstant>
          <commandSubTopic>/gazebo/command/motor_speed</commandSubTopic>
          <motorNumber>2</motorNumber>
@@ -426,7 +426,7 @@
          <timeConstantUp>0.0125</timeConstantUp>
          <timeConstantDown>0.025</timeConstantDown>
          <maxRotVelocity>1100</maxRotVelocity>
-         <motorConstant>1.84e-05</motorConstant>
+         <motorConstant>2.0e-05</motorConstant>
          <momentConstant>0.06</momentConstant>
          <commandSubTopic>/gazebo/command/motor_speed</commandSubTopic>
          <motorNumber>3</motorNumber>
@@ -636,7 +636,7 @@
       </plugin>
       <plugin name="p3d_base_controller" filename="libgazebo_ros_p3d.so">
          <alwaysOn>true</alwaysOn>
-         <updateRate>50.0</updateRate>
+         <updateRate>100.0</updateRate>
          <bodyName>base_link</bodyName>
          <topicName>/gt_iris_base_link_imu</topicName>
          <gaussianNoise>0.0</gaussianNoise>
@@ -655,16 +655,3 @@
        </plugin>-->
    </model>
 </sdf>
-© 2020 GitHub, Inc.
-Terms
-Privacy
-Security
-Status
-Help
-Contact GitHub
-Pricing
-API
-Training
-Blog
-About
-

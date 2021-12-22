@@ -4,6 +4,9 @@
 echo 111 | sudo -S pkill -9 gzserver
 echo 111 | sudo -S pkill -9 gzclient
 sleep 2
+export LD_LIBRARY_PATH=~/han_ws/devel/lib:/opt/ros/melodic/lib
+
+#export PYTHONPATH=$PYTHONPATH:"/home/zuzu/.local/lib/python2.7/site-packages"
 
 cd ~/PX4-Autopilot
 DONT_RUN=1 make px4_sitl_default gazebo

@@ -24,6 +24,7 @@
 #include <sensor_msgs/PointCloud.h>
 #include <sensor_msgs/point_cloud_conversion.h>
 #include<traj_opt/se3_planner.h>
+#include<obj_state_msgs/ObjectsStates.h>
 using namespace std;
 using namespace Eigen;
 
@@ -33,7 +34,13 @@ using namespace Eigen;
          vector<Vector3d> obs_sizes;
          vector<Vector3d> vels;
          double time_stamp;
-         int dyn_number;
+         int dyn_number = 0;
+         vector<Vector3d> ballpos;
+         vector<Vector3d> ballvel;
+         vector<Vector3d> ballacc;
+         vector<Vector3d> ball_sizes;
+         double ball_time_stamp;
+         int ball_number = 0;
         }; 
 
 class Listener
@@ -59,8 +66,11 @@ class Listener
         MatrixXd waypoints;
         vec_Vec3f obs;
         dynobs_tmp dynobs;
+        
         bool pcl_update = false;
         bool waypoint_update = false;
+        bool trigger = false;
+        sensor_msgs::PointCloud cloud;
         // // control states
         // //// linear states
         // Vector3d P_E, V_E, A_E, A_B;
@@ -77,4 +87,8 @@ class Listener
         void crdCb(const visualization_msgs::MarkerArray::ConstPtr &);
         void wptsCb(const nav_msgs::Path::ConstPtr &);
         void obsCb(const sensor_msgs::PointCloud2::ConstPtr &);
+        void odomCb(const nav_msgs::Odometry::ConstPtr & msg);
+        void triggerCb(const geometry_msgs::PoseStamped::ConstPtr & msg);
+        void ballCb(const obj_state_msgs::ObjectsStates::ConstPtr & msg);
+
 };

@@ -226,7 +226,12 @@ private:
                                   const dynobs_tmp *dynobs_pointer) const
     {
         double pena = 0.0;
-        const double vMaxSqr = vMax * vMax;
+        double pena_ball = 0.0;
+        double vMaxSqr;
+        if (dynobs_pointer->ball_number >0)
+        {vMaxSqr = vMax * vMax*4;}
+        else{vMaxSqr = vMax * vMax;}
+        
         const double thrAccMinSqr = thrAccMin * thrAccMin;
         const double thrAccMaxSqr = thrAccMax * thrAccMax;
         const double bdrMaxSqr = bdrMax * bdrMax;
@@ -265,6 +270,7 @@ private:
         double omg,violaPos,violaPosPenaD,violaPosPena;
         double t_gap,t_now;
         double wei_dyn = ci(0)*1.2;
+        double wei_ball = ci(0)*200;
         int innerLoop,idx;
         constexpr double inv_a2 = 1 / 2.0 / 2.0, inv_b2 = 1.0;
         
@@ -456,13 +462,15 @@ private:
                 // if (i>0){
                 // t_gap = T1(i-1)+s1;}
                 // else{t_gap=  s1;}
-                t_gap = t_now -dynobs_pointer->time_stamp;
+                
                 //cout<<"t_gap"
                 for (int m=0; m<dynobs_pointer->dyn_number; m++)
                 {
-                
+                if(m==0)
+                {
+                t_gap = t_now -dynobs_pointer->time_stamp;}
                 // t_gap = t_now - dynobs_pointer->time_stamp;
-                // cout << "mk321" <<endl<<t_gap<<endl;
+                cout << "mk321-1" <<endl<<t_gap<<endl;
                 ct_center = dynobs_pointer->centers[m] + t_gap*dynobs_pointer->vels[m];
                 Eigen::Vector3d check_vec=((ct_center - pos).cwiseAbs() - dynobs_pointer->obs_sizes[m]*0.5);
                 if ((check_vec.array()<0.0).all())
@@ -489,7 +497,39 @@ private:
                 }
                 // cout << "mk322" <<endl;
                 }
+                
+                for (int m=0; m<dynobs_pointer->ball_number; m++)
+                {
+                if(m==0)
+                {t_gap = t_now -dynobs_pointer->ball_time_stamp;}
+                // t_gap = t_now - dynobs_pointer->time_stamp;
+                // cout << "mk321" <<endl<<t_gap<<endl<<m<<"  j: "<<j<<"  innerloop:  "<<innerLoop<<endl;
+                ct_center = dynobs_pointer->ballpos[m] +  t_gap*dynobs_pointer->ballvel[m] + 0.5* t_gap* t_gap*dynobs_pointer->ballacc[m];
+                Eigen::Vector3d check_vec=((ct_center - pos).cwiseAbs() - dynobs_pointer->ball_sizes[m]*0.5);
+                if ((check_vec.array()<0.0).all())
+                { double sa = dynobs_pointer->ball_sizes[m].squaredNorm()/4;
+                //Eigen::Vector3d dist_vec = pos - ct_center;
+                Eigen::Vector3d dist_vec = pos - ct_center;
+                double ellip_dist2 = dist_vec(2) * dist_vec(2) * inv_a2 + (dist_vec(0) * dist_vec(0) + dist_vec(1) * dist_vec(1)) * inv_b2;
+                double dist2_err = sa - ellip_dist2;
+                double dist2_err2 = dist2_err * dist2_err;
+                double dist2_err3 = dist2_err2 * dist2_err;
 
+                pena += wei_ball * dist2_err3 * omg * step;
+                pena_ball+= wei_ball * dist2_err3 * omg * step;
+                Eigen::Vector3d dJ_dP = wei_ball * 3 * dist2_err2 * (-2) * Eigen::Vector3d(inv_b2 * dist_vec(0), inv_b2 * dist_vec(1), inv_a2 * dist_vec(2));  //gradient!
+                gdC.block<6, 3>(i * 6, 0) += beta0 * dJ_dP.transpose()* omg * step;
+                gdT(i) += omg * (wei_ball * dist2_err3 / innerLoop + step * dJ_dP.dot(vel - dynobs_pointer->ballvel[m])*j/innerLoop);
+                double grad_prev_t = dJ_dP.dot(-dynobs_pointer->ballvel[m]);
+                if (i > 0)
+                {
+                    gdT.head(i).array() += omg * step * grad_prev_t;
+                }
+        
+      
+                }
+                // cout << "mk322" <<endl;
+                }
                 s1 += step;
             }
         }
@@ -498,7 +538,7 @@ private:
         // double endtime=(double)(end_time-start_time)/CLOCKS_PER_SEC;
         // compute_time+=endtime;
         cost += pena;
-        // cout << "cost in constrain: " << cost << " pena: "<<pena<<endl;
+        cout << "cost in constrain: " << cost << " pena_ball: "<<pena_ball<<endl;
         return;
     }
 
