@@ -337,7 +337,7 @@ void KinodynamicAstar::setParam(ros::NodeHandle& nh)
   nh.getParam("search/max_tau", max_tau_);
   nh.getParam("search/init_max_tau", init_max_tau_);
   nh.getParam("VelMax", max_vel_);
-  nh.getParam("ThrustAccMin", max_acc_);
+  nh.getParam("PathAccMax", max_acc_);
   nh.getParam("search/w_time", w_time_);
   nh.getParam("search/horizon", horizon_);
   nh.getParam("search/resolution_astar", resolution_);
