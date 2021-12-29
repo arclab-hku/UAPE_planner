@@ -4,6 +4,8 @@ To run in Gazebo simulation, first modify /launch/sim.sh line 7, l8-20. use your
 
 Also, in line 4-5 "111" should be replaced with your user password.
 
+It depends on "sfc" and "px4Controller" two packages, please clone them and compile them in your workspace first.
+
 Compile this package and source your workspace.
 
 First, launch the gazebo simulation environment.
