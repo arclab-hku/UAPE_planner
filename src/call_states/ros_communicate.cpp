@@ -205,7 +205,7 @@ void  Listener::ballCb(const obj_state_msgs::ObjectsStates::ConstPtr & msg)
 {   
     // cout << "ball received!"<<endl;
     dynobs.ball_number = msg->states.size();
-    
+    pcl_update = true;
     dynobs.ballpos.clear();
     dynobs.ballpos.resize(dynobs.ball_number);
     dynobs.ballvel.clear();

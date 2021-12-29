@@ -4,19 +4,24 @@
 # 14 12
 #18 16
 # 21 18
-goal: [45.0,0.0,1.3]
+goal: [4.0,0.0,1.3]
+# goal: [-15.0,-15.0,1.3]
 ScaleSI:                    1.0
-MapHeight:                  2.8
+MapHeight:                  2.3
 PolyhedronBox:              [4.0, 4.0, 2.5]
 Rho:                        1000.0
 TotalT:                     0.0
 QdIntervals:                10
 HorizHalfLen:               0.0
 VertHalfLen:                0.0
-SafeMargin:                 0.0
-VelMax:                     2.0
-ThrustAccMin:               5.0  #the max acc used for kino-a-star path search
-ThrustAccMax:               20.0
+SafeMargin:                 0.2
+VelMax:                     0.5  # maximal speed for kino-path searching and trajectory optimization. The code will double this max speed 
+                                 #constrain for trajectory when a ball is detected
+                                 
+PathAccMax:                 2.0  #the max acc used for kino-a-star path search. It should be smaller when VelMax is smaller,
+                                 # or the kino-path-searching may often fail because of the small speed constrain VS big acc sampling gap. 
+                                 #Some recommended values: VelMax = 0.5/ThrustAccMin=1.0 ; VelMax = 2.0/ThrustAccMin=5.0
+ThrustAccMax:               10.0
 BodyRateMax:                1.0
 GravAcc:                    9.81
 PenaltyPVTB:                [60000.0, 50000.0, 10000.0, 10000.0]   #P: convex hull  V: velocity T: thrust  B:body rate
@@ -28,19 +33,28 @@ ifMove:                     true #false #
 #RouteStoragePath:           './data/office_easy_1.txt'
 EllipsoidVizRGBA:            [1.0, 0.0, 1.0, 1.0]
 #QuadrotorPath:              '/misc/data/quadcopter.dae'
-sfck_t: 0.2  #should be smaller than horizon*0.5/velmax
+sfck_t: 0.8  #should be smaller than horizon*0.5/velmax
 #kinodynamic path searching
 search/max_tau: 0.6
 search/init_max_tau: 0.8
-
+search/acc_sample_num_: 2.0 #the acceleration sampling resolution will be 1/acc_sample_num_ when sampling in the control (acc) space. 
+                            #From -max_acc to max_acc, when acc_sample_num_ = 2.0, there are 2*acc_sample_num_+1=5 samples for one axis, and 5*5*5=125
+                            #samples in total. Thus, the computing burden will increase dramatically when increasing the sampling number. You can increase this 
+                            #when the path searching often fails, depending on the computing resource of your hardware.
 search/w_time: 10.0
-search/horizon: 7.0
+search/horizon: 8.5
 search/lambda_heu: 5.0
 search/resolution_astar: 0.1
-search/time_resolution: 0.8
+search/time_resolution: 0.5
 search/margin: 0.2
 search/allocate_num: 100000
-search/check_num: 5
+search/check_num: 5  #
 search/optimistic: true
-search/vel_margin: 0.0
+search/vel_margin: 2.0   # The final maximal speed constrain will be VelMax+vel_margin. You can give a positive number to relax the velocity 
+                         #  constrain when the path planning often fails
 search/safety_radius: 0.25
+
+# You can see that the acceleration constrain for path planning and the trajectory optimization is not the same. It is a trade off between the computing
+#burden and the searching accuracy. This gap will influence the consistancy when navigating in the dynamic environment, which means the kino-path
+#will differs more from the final trajectory, and the final acceleratino cost of the traj may be greater. However, this will not influence the 
+#safety, and the actual kinodynamic limits are respected in the trajectory optimization part.

@@ -167,7 +167,7 @@ struct Obs
   /* ---------- parameter ---------- */
   /* search */
   double max_tau_, init_max_tau_, S_r;
-  double max_vel_, max_acc_;
+  double max_vel_, max_acc_, acc_sample_num_;
   double w_time_, horizon_, lambda_heu_;
   int allocate_num_, check_num_;
   double tie_breaker_;

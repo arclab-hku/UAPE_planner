@@ -229,7 +229,13 @@ private:
         double pena_ball = 0.0;
         double vMaxSqr;
         if (dynobs_pointer->ball_number >0)
-        {vMaxSqr = vMax * vMax*4;}
+        {if (vMax <= 2)
+        {vMaxSqr = 16.0;}
+        else{
+            vMaxSqr = vMax * vMax*4;}
+         }
+        // else if (dynobs_pointer->dyn_number >0)
+        // {vMaxSqr = vMax * vMax*2;}
         else{vMaxSqr = vMax * vMax;}
         
         const double thrAccMinSqr = thrAccMin * thrAccMin;
@@ -269,7 +275,7 @@ private:
         Eigen::Vector3d ct_center;
         double omg,violaPos,violaPosPenaD,violaPosPena;
         double t_gap,t_now;
-        double wei_dyn = ci(0)*1.2;
+        double wei_dyn = ci(0)*5;
         double wei_ball = ci(0)*200;
         int innerLoop,idx;
         constexpr double inv_a2 = 1 / 2.0 / 2.0, inv_b2 = 1.0;
@@ -341,7 +347,7 @@ private:
                 dJerxyBdr << -dJerBdr.row(1), dJerBdr.row(0), Eigen::RowVector3d::Zero();
                 dJerSqrMagBdr = 2.0 * xyBdr.transpose() * dJerxyBdr;
 
-                violaVel = vel.squaredNorm() - vMaxSqr;
+                
                 violaThrl = thrAccMinSqr - sqrMagThr;
                 violaThrh = sqrMagThr - thrAccMaxSqr;
                 violaBdr = sqrMagBdr - bdrMaxSqr;
@@ -390,7 +396,7 @@ private:
                 for (int k = 0; k < K; k++)
                 {
                     outerNormal = cfgHs[idx].col(k).head<3>();
-                    violaPos = outerNormal.dot(pos - cfgHs[idx].col(k).tail<3>())+0.5;
+                    violaPos = outerNormal.dot(pos - cfgHs[idx].col(k).tail<3>())+safeMargin;
                     if (violaPos > 0.0)
                     {
                         positiveSmoothedL1(violaPos, violaPosPena, violaPosPenaD);
@@ -401,20 +407,6 @@ private:
                     }
                 }
                 // cout<<"gdT for polyH: "<< gdT<<endl;
-                if (violaVel > 0.0)
-                {
-                    // violaVelPenaD = violaVel * violaVel;
-                    // violaVelPena = violaVelPenaD * violaVel;
-                    // violaVelPenaD *= 3.0;
-                    positiveSmoothedL1(violaVel, violaVelPena, violaVelPenaD);
-                    gradViolaVc = 2.0 * beta1 * vel.transpose();
-                    gradViolaVt = 2.0 * alpha * vel.transpose() * acc;
-                    gdC.block<6, 3>(i * 6, 0) += omg * step * ci(1) * violaVelPenaD * gradViolaVc;
-                    gdT(i) += omg * (ci(1) * violaVelPenaD * gradViolaVt * step +
-                                     ci(1) * violaVelPena / cons(i));
-                    pena += omg * step * ci(1) * violaVelPena;
-                    
-                }
                 // cout<<"gdT for velocity: "<< gdT<<endl;
                 // if (violaThrl > 0.0)
                 // {
@@ -470,11 +462,13 @@ private:
                 {
                 t_gap = t_now -dynobs_pointer->time_stamp;}
                 // t_gap = t_now - dynobs_pointer->time_stamp;
-                cout << "mk321-1" <<endl<<t_gap<<endl;
+                // cout << "mk321-1" <<endl<<t_gap<<endl;
                 ct_center = dynobs_pointer->centers[m] + t_gap*dynobs_pointer->vels[m];
                 Eigen::Vector3d check_vec=((ct_center - pos).cwiseAbs() - dynobs_pointer->obs_sizes[m]*0.5);
                 if ((check_vec.array()<0.0).all())
-                { double sa = dynobs_pointer->obs_sizes[m].squaredNorm()/4;
+                { 
+                vMaxSqr = vMax * vMax*2;
+                double sa = dynobs_pointer->obs_sizes[m].squaredNorm()/4;
                 //Eigen::Vector3d dist_vec = pos - ct_center;
                 Eigen::Vector3d dist_vec = pos - ct_center;
                 double ellip_dist2 = dist_vec(2) * dist_vec(2) * inv_a2 + (dist_vec(0) * dist_vec(0) + dist_vec(1) * dist_vec(1)) * inv_b2;
@@ -529,6 +523,21 @@ private:
       
                 }
                 // cout << "mk322" <<endl;
+                }
+                violaVel = vel.squaredNorm() - vMaxSqr;
+                if (violaVel > 0.0)
+                {
+                    // violaVelPenaD = violaVel * violaVel;
+                    // violaVelPena = violaVelPenaD * violaVel;
+                    // violaVelPenaD *= 3.0;
+                    positiveSmoothedL1(violaVel, violaVelPena, violaVelPenaD);
+                    gradViolaVc = 2.0 * beta1 * vel.transpose();
+                    gradViolaVt = 2.0 * alpha * vel.transpose() * acc;
+                    gdC.block<6, 3>(i * 6, 0) += omg * step * ci(1) * violaVelPenaD * gradViolaVc;
+                    gdT(i) += omg * (ci(1) * violaVelPenaD * gradViolaVt * step +
+                                     ci(1) * violaVelPena / cons(i));
+                    pena += omg * step * ci(1) * violaVelPena;
+                    
                 }
                 s1 += step;
             }

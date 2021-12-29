@@ -660,7 +660,7 @@ void TrajectoryGenerator_fast::get_desire(double timee, Vector3d &p_d, Vector3d 
     p_d = traj.getPos(timee);
     v_d = traj.getVel(timee);
     a_d = traj.getAcc(timee);
-    p_d_yaw = traj.getPos(clip(timee+3.0,0.0,total_t-0.01));
+    p_d_yaw = traj.getPos(clip(timee+5.0,0.0,total_t-0.01));
     // p_d_yaw = traj.getPos(total_t-0.1);
     // cout<<"pd,vd,ad,p_d_yaw: \n"<<p_d<<"\n"<<v_d<<"\n"<<a_d<<"\n"<<p_d_yaw<<endl;
 }

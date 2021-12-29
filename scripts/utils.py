@@ -27,6 +27,15 @@ def body_to_earth_frame(ii, jj, kk):
                 [-Sjj, Cjj * Sii, Cjj * Cii]])
     return R
 
+def var_B2E(ii, jj, kk, xb, yb, zb):
+    Cii, Cjj, Ckk=math.cos(ii), math.cos(jj), math.cos(kk)
+    Sii, Sjj, Skk=math.sin(ii), math.sin(jj), math.sin(kk)
+
+    R = np.array([[((Ckk*Sjj*Cii+Skk*Sii)*yb + (-Ckk*Sjj*Sii+Skk*Cii)*zb), (-Ckk*Sjj*xb + Ckk*Cjj*Sii*yb+Ckk*Cjj*Cii*zb), (-Skk*Cjj*xb+(-Skk*Sjj*Sii-Ckk*Cii)*yb+(-Skk*Sjj*Cii+Ckk*Sii)*zb)],
+                [((Skk * Sjj * Cii - Ckk * Sii)*yb + (-Skk * Sjj * Sii - Ckk * Cii)*zb),(-Skk*Sjj*xb+Skk*Cjj*Sii*yb+Skk*Cjj*Cii*zb),(Ckk*Cjj*xb+(Ckk * Sjj * Sii - Skk * Cii)*yb + (Ckk * Sjj * Cii + Skk * Sii)*zb)],
+                [Cjj*Cii*yb-Cjj*Sii*zb, -Cjj*xb-Sjj*Sii*yb-Sjj*Cii*zb, 0]])
+    # print(R)
+    return np.square(R)
 
 def earth_to_body_frame(ii, jj, kk):
     return np.transpose(body_to_earth_frame(ii, jj, kk))

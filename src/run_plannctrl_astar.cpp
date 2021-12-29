@@ -171,6 +171,7 @@ int main(int argc, char **argv)
     ct_pos = p_d;
     ct_vel = v_d;
     ct_acc = a_d;}
+    if_initial = false;
     // ct_acc = Vector3d::Zero(3);
     //ros::Time::now().toSec() - last_path_t > 0.1 && 
     if ((goal-ct_pos).norm()>1.0 && flying.obs_pointer->size()>0)
@@ -243,22 +244,32 @@ int main(int argc, char **argv)
     //  <<ros::Time::now().toSec()<<endl<<t1<<endl<<traj_last_t<<endl<<flying.dynobs_pointer->time_stamp<<endl;  
        }
       // cout << "timee:"<<timee<<endl;
+      double desire_psi;
+        if ((goal-ct_pos).norm()>0.2)
+        {
         reference.get_desire(timee, p_d, v_d, a_d,p_d_yaw);
-        if_initial = false;
-    //    bsc.controller(state, p_d, v_d, a_d,p_d_yaw,next_goal);
-        // cout<<"55"<<endl;
-        // step forward
         Vector2d v2 = (p_d_yaw - state.P_E).head(2);
         Vector2d v1;
         v1<<1.0,0.0;
-        double desire_psi=acos(v1.dot(v2) /(v1.norm()*v2.norm())); 
+        desire_psi=acos(v1.dot(v2) /(v1.norm()*v2.norm())); 
         
         if (v2(1)<0)
-        {desire_psi = -desire_psi;}
+        {desire_psi = -desire_psi;}}
+        else{
+          p_d=goal;
+          v_d.setZero();
+          a_d.setZero();
+          if_initial = true;
+        }
+        
+    //    bsc.controller(state, p_d, v_d, a_d,p_d_yaw,next_goal);
+        // cout<<"55"<<endl;
+        // step forward
+
         // desire_psi = state.Euler(2) + clip(desire_psi - state.Euler(2),-0.9,0.9);
         if (ifMove)
         {
-        state = flying.step(desire_psi, p_d, v_d, a_d, "pos_vel_acc_yaw_c"); }
+        state = flying.step(desire_psi, p_d, v_d, a_d, "pos_vel_acc_yaw_c");
       //  cout << "state setpoint:" << desire_psi <<"\n"<< p_d<<"\n"<<v_d<<"\n"<< a_d << endl;
         // state = flying.step(0.0, bsc.Vc, "yaw_n_velocity"); 
         // cout<<"flying.step: \n"<<endl;
@@ -273,8 +284,6 @@ int main(int argc, char **argv)
 //             break;
 //         }
        // cout << "pub traj (out):" << reference.total_t <<endl;
-        if (ifMove)
-        {
         reference.get_traj_samples(sp_pos, sp_vel,sp_acc, ros::Time::now().toSec() - traj_last_t);}
         else{reference.get_traj_samples(sp_pos, sp_vel,sp_acc, 0.0);}
         flying.pub_traj (sp_pos, sp_vel,sp_acc);
@@ -283,11 +292,17 @@ int main(int argc, char **argv)
         if (flying.dynobs_pointer->ball_number >0)
         {
          flying.pub_ballstates();
+         if (ros::Time::now().toSec() - flying.dynobs_pointer->ball_time_stamp > 1.5)
+         {
+           flying.dynobs_pointer->ball_number = 0;
+         }
         }
     ros::Duration(1/CtrlFreq).sleep();
-    
-    }
+    if (if_initial)
+    {break;}
 
+    }
+    
   
     return 0;}
 

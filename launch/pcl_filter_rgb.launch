@@ -3,7 +3,7 @@
 <node pkg="ahpf_planner" type ="chen_filter_rgb" name="chen_filter_rgb" output="screen">
         
 <param name="input"       type="string" value="/camera/depth/color/points"/> 
-<param name="cut_dis"       type="double" value="6.5"/> 
+<param name="cut_dis"       type="double" value="8.5"/> 
 <!--param name="voxel_size"       type="double" value="0.1"/> 
 
 <param name="n_r"       type="double" value="0.24"/> 

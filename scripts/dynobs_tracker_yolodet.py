@@ -1,4 +1,5 @@
 #!/usr/bin/env python2
+# coding=utf-8
 import rospy
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import PointCloud2,PointField,Imu,Image
@@ -6,7 +7,7 @@ from sensor_msgs import point_cloud2
 import tf
 from geometry_msgs.msg import PoseStamped,TwistStamped,Point
 import numpy as np
-from utils import earth_to_body_frame,body_to_earth_frame
+from utils import earth_to_body_frame,body_to_earth_frame,var_B2E
 import threading
 import time
 import sklearn.cluster as skc
@@ -36,7 +37,11 @@ class convert_pcl():
         self.pcl_timestamp = pcl.header.stamp
         self.ang_vel = np.array([imu.angular_velocity.x,imu.angular_velocity.y,imu.angular_velocity.z])
         self.line_vel = np.array([odom.twist.twist.linear.x,odom.twist.twist.linear.y,odom.twist.twist.linear.z])
+        self.line_acc =  np.array([imu.linear_acceleration.x,imu.linear_acceleration.y,imu.linear_acceleration.z])
         self.vel_time = imu.header.stamp.secs + imu.header.stamp.nsecs * 1e-9
+        self.acc_var = np.array([imu.linear_acceleration_covariance[0],imu.linear_acceleration_covariance[4],imu.linear_acceleration_covariance[8]])
+        self.angvel_var = np.array([imu.angular_velocity_covariance[0],imu.angular_velocity_covariance[4],imu.angular_velocity_covariance[8]])
+        # self.ang_var = np.array([imu.orientation_covariance[0],imu.orientation_covariance[4],imu.orientation_covariance[8]])
         # print("alighed",self.vel_time,self.pcl_time)
         self.if_align = 1
     
@@ -221,7 +226,7 @@ class convert_pcl():
     #     return [vx,vy,vz,wx,wy,wz]
     def publish_dyn_obs(self,c_dyn1,v_dyn1,obsd,max_displ,if_track):
         dyn=MarkerArray()
-        
+        life_t = 0.1
         for m in range(len(c_dyn1)):
 #            if np.linalg.norm(np.array(pos[0:3])-c_dyn1[m])>8 :#or abs(math.atan2(-pos[1]+c_dyn1[m][1],-pos[0]+c_dyn1[m][0])-pos[3])>math.pi/3:
 #                break
@@ -305,10 +310,13 @@ class convert_pcl():
             dynv.color.g = 0.1
             dynv.color.b = 0.1
             
-            
+            dynobs.lifetime = rospy.Duration(life_t)
+            dynv.lifetime = rospy.Duration(life_t)
+            dynbbox.lifetime = rospy.Duration(life_t)
             dyn.markers.append(dynobs)
             dyn.markers.append(dynv)
             dyn.markers.append(dynbbox)
+            
         # dynv.pose.orientation.x = 0
         # dynv.pose.orientation.y = 0
         # dynv.pose.orientation.z = 0
@@ -527,7 +535,7 @@ class convert_pcl():
         return [c_dyn[0],c_dyn[1],1*c_dyn[2],2*vd,0.5*va,0.7*num,25*rgb,15*rgb_va]
 #        return [c_dyn[0],c_dyn[1],c_dyn[2],num,dens]
         
-    def get_dplm (self,fm1,fm2,pos1,ct_center,kf_p,kf_v,t_gap):
+    def get_dplm (self,fm1,fm2,pos1,ct_center,kf_p,kf_v,t_gap,v_size):
         # pks=[]
         k = 4 #the numer of peaks
         fft1 = np.fft.rfftn(fm1)
@@ -537,6 +545,8 @@ class convert_pcl():
      
         idxs = np.argsort(ifft.ravel())[:-k-1:-1]
         peak_ids = np.column_stack(np.unravel_index(idxs, ifft.shape))
+        pk1 = ifft[tuple(peak_ids[0])]
+        print("peak_ids:",peak_ids,ifft.shape)
         # pk1 = np.max(ifft)
         # disp  = np.rint(np.mean((np.where(ifft==pk1)),axis=1)).astype(int) #np.where(ifft==pk1)
         # disp  = np.where(ifft==pk1)
@@ -550,35 +560,89 @@ class convert_pcl():
         
         # pk2 = np.max(ifft)
         # disp2 = np.where(ifft==pk2)
-        if_dispa = True
+        if_dispa = False
+        first_peak_not_in = False
         neighbors=[]
         for i in range(k):
-            if (abs(peak_ids[i] - peak_ids)>1).any():
-                if_dispa = False
-                break
-        for m in range(k):
-            if (abs(peak_ids[m] - peak_ids[0])<=1).all():
-                neighbors.append(peak_ids[m])
-        print("pos1",pos1)
+            conv_dms1 = np.where(np.array(pos1)+peak_ids[i]>=np.array(np.shape(fm1)[0:3])-1)
+            conv_dms2 = np.where(abs(peak_ids[i])>convert.max_vvn+3)
+            print(conv_dms1,conv_dms2)
+            conv_dms = list(set(list(conv_dms1[0])).union(set(list(conv_dms2[0]))))
+            print("conv_dms,disp,space shape:",conv_dms,peak_ids[i],np.array(np.shape(fm1)[0:3]),"peak:",ifft[tuple(peak_ids[i])],convert.max_vvn+3)
+            newid = peak_ids[i]
+            newid[conv_dms] = peak_ids[i][conv_dms] - np.array(np.shape(fm1)[0:3])[conv_dms]
+            ifft[tuple(newid)] = ifft[tuple(peak_ids[i])]
+            peak_ids[i] = newid
+            print("new id:",peak_ids[i])
 
+        for i in range(k):
+            if_dispa1 = []
+            for q in range(k):
+                if i==q:
+                    continue
+                if (abs(peak_ids[i] - peak_ids[q])>1).any():
+                    # print("peak_ids[i] - peak_ids[q]",peak_ids[i] - peak_ids[q],peak_ids[i], peak_ids[q])
+                    if_dispa1.append(True)
+                else:
+                    if_dispa1.append(False)
+            print("dispart:",peak_ids[i],np.array(if_dispa1).all())
+            if (not if_dispa):
+                if_dispa = np.array(if_dispa1).all()
+            if (i==0 and if_dispa):
+                first_peak_not_in = True
+            if (not np.array(if_dispa1).all() and abs(ifft[tuple(peak_ids[i])]-pk1)/pk1 < 0.04):
+                neighbors.append(peak_ids[i])
+                print("add neighbor: ",peak_ids[i])
+                
+
+        # for m in range(k):
+        #     if (abs(peak_ids[m] - peak_ids[0])<=1).all():
+        #         neighbors.append(peak_ids[m])
+        print("pos1",pos1)
+        if (not len(neighbors) or first_peak_not_in):
+            neighbors = [peak_ids[0]]
         if if_dispa:
-            confidence = ifft[peak_ids[0]]/sum(ifft[peak_ids])
-            if confidence > (1/k+0.2):
-                disp = ifft[np.array(neighbors)]*np.array(neighbors)/sum(ifft[np.array(neighbors)])
-            else:
+            
+            confidence = ifft[tuple(peak_ids[0])]/sum(ifft[tuple(peak_ids.T)])
+            print("found dispart!",confidence)
+            # print("ifft[peak_ids[0]],sum(ifft[peak_ids])",ifft[peak_ids[0]],sum(ifft[peak_ids]))
+            if confidence > (1/float(k)+0.2) or len(kf_p)==0:
+                print("confident:",confidence,(1/k+0.2))
+                disp = np.matmul(ifft[tuple(np.array(neighbors).T)].reshape((-1,1)).T,np.array(neighbors))/sum(ifft[tuple(np.array(neighbors).T)])
+            elif len(kf_p):
+                
                 dists = np.linalg.norm(ct_center-kf_p,axis=1)
                 dist_ind = np.argsort(dists)
-                if dists[dist_ind[0]] < 1:
+                print("try match with kf records!",dists[dist_ind[0]])
+                if dists[dist_ind[0]] < 0.5:
                     propose_v = kf_v[dist_ind[0]]
-                    propose_disp_observe = peak_ids[np.where(np.linalg.norm(ifft[peak_ids]/t_gap - propose_v)<1)]
+                    propose_disp_observe = peak_ids[np.where(np.linalg.norm(-peak_ids*v_size/t_gap - propose_v)<0.6)]
                     if (len(propose_disp_observe)):
-                        disp = ifft[propose_disp_observe]*propose_disp_observe/sum(ifft[propose_disp_observe])
+                        disp = np.matmul(ifft[tuple(np.array(propose_disp_observe).T)].reshape((-1,1)).T,np.array(propose_disp_observe))/sum(ifft[tuple(np.array(propose_disp_observe).T)])
+                        print("kf matched! disp:",disp,propose_v)
                     else:
-                        return np.zeros(3)
+                        print("no velocity fits!")
+                        return np.ones(3)*1e5
                 else:
-                    return np.zeros(3)
+                    print("no distance fits!")
+                    return np.ones(3)*1e5
+            # else:
+            #     print("no prior KF!")
+            #     return np.zeros(3)
         else:
-            disp = ifft[np.array(neighbors)]*np.array(neighbors)/sum(ifft[np.array(neighbors)])
+            if len(kf_p):
+                dists = np.linalg.norm(ct_center-kf_p,axis=1)
+                dist_ind = np.argsort(dists)
+                print("try match with kf records!",dists[dist_ind[0]])
+                if dists[dist_ind[0]] < 0.5:
+                    propose_v = kf_v[dist_ind[0]]
+                    propose_disp_observe = peak_ids[np.where(np.linalg.norm(-peak_ids*v_size/t_gap - propose_v)<0.6)]
+                    if (len(propose_disp_observe)):
+                        disp = np.matmul(ifft[tuple(np.array(propose_disp_observe).T)].reshape((-1,1)).T,np.array(propose_disp_observe))/sum(ifft[tuple(np.array(propose_disp_observe).T)])
+                        print("kf matched! disp:",disp,propose_v)
+                        return disp
+            # print("ifft[np.array(neighbors)]*np.array(neighbors)",ifft[tuple(np.array(neighbors).T)],np.array(neighbors))
+            disp = np.matmul(ifft[tuple(np.array(neighbors).T)].T,np.array(neighbors))/sum(ifft[tuple(np.array(neighbors).T)])
 
 
         # if abs(ifft-pk1)/pk1 < 0.02:
@@ -601,7 +665,9 @@ class convert_pcl():
         # conv_dms = np.where(np.array(pos1)+disp>=np.array(np.shape(fm1)[0:3]))
         # # print("conv_dms,disp,space shape:",conv_dms,disp,np.array(np.shape(fm1)[0:3]))
         # disp[conv_dms] = disp[conv_dms] - np.array(np.shape(fm1)[0:3])[conv_dms]
-        
+
+
+        print("disp:",disp)
         return disp
     def romove_occluded(self,clusters,centers,local_pos):
         angs = np.zeros(len(centers))
@@ -641,29 +707,37 @@ if __name__ == '__main__':
     c_dyn11=None
     dyn_v11=None
     local_pos=0
+    convert.pos_wd = []
+    convert.ori_wd = []
+    convert.ang_var = np.ones(3)*0.01
+    # convert.vell_wd = []
+    # convert.vela_wd = []
+    # convert.acc_wd = []
+    convert.wd_len = 30
     octo_pcl=[]
     r0=0
     p0=0
     y0=0
-    vel_infl = 0.5
+    vel_infl = 0.8
     map_reso=0.2  #resolution of the voxel
     fac_dv=1.0    #dynamic obstacle velocity factor
-    v_size = 0.15 #voxel size of the bounding box
+    v_size = 0.10 #voxel size of the bounding box
     center_r = 0.3 # center ragion of the obstacle has higher weight, because the rotation is weaker
     rate = rospy.Rate(rosrate) 
     dt=0.25       # time gap bewteen two neighbor point cloud frames
     max_obs_size = 3.5 # max size of obstacle BB, x-y-z
-    max_obs_speed = 2.0 # Prior Knowledge of the maximal object speed
+    max_obs_speed = 2.5 # Prior Knowledge of the maximal object speed
     n_p=18        #params for DBSCAN
     r_p = 0.3
     mask_thr = 0.3 #the thredshold for the static block mask ratio to abandon the current cluster. If the masked blockes/current cluster's total blockes is greater than mask_thr, this cluster is abandoned.
     last_kftime = 0
-    wt_pnum = 1.0    # weight for the number of the points in one voxel
+    wt_pnum = 3.0    # weight for the number of the points in one voxel
     wt_color = 4*1e39  # weight for the color information of the colorful point cloud
     ft_vet_len = 2   # feature vector length for each voxel. Here only the mean of color and number of the points in the voxel are considered.
     xb,yb,zb = 0.12,0,0.00  # Mounting matrix of the camera.
     static_pcl_len = 1000   #Maximal memorized static point cloud (i.e., the map) size
     kf_predtime = 0.5   #Maximal predicting time in a KF for an object if no more observation can be matched
+    convert.max_vvn = int(max_obs_speed*dt/v_size)+1
     pub_pcl_size = 500
     pcl_h=[]
     pcl_h_l=[]
@@ -692,6 +766,7 @@ if __name__ == '__main__':
     p_mat_list,p_mat_l = [],[]
     inv_flag = 0
     targets = []
+    kf_dt_list = []
     while not rospy.is_shutdown():
         starttime1 = time.time()
         t_track = 0
@@ -746,6 +821,13 @@ if __name__ == '__main__':
         if convert.pos is not None and (convert.pcl is not None) and (convert.ang_vel is not None) and convert.if_align: #and len(convert.pcl[0])>n_p  and convert.if_align == 1
             convert.if_align = 0
             px,py,pz,r,p,y=convert.parse_local_position(convert.pos)
+            convert.ori_wd.append(np.array([r,p,y]))
+            if len(convert.ori_wd)>convert.wd_len:
+            #     convert.pos_wd = convert.pos_wd[1::]
+                convert.ori_wd = convert.ori_wd[1::]
+            # var_pos = np.var(np.array(convert.pos_wd),axis=0)
+            var_ori = np.var(np.array(convert.ori_wd),axis=0)
+            print("var_ori:",var_ori)
             # convert.pcl_pt=convert.pcl[0]
             # convert.pcl_rgb=convert.pcl[1]
             pcl_rgb=np.array(convert.pcl[1])
@@ -760,7 +842,7 @@ if __name__ == '__main__':
             [0,math.cos(p),-math.sin(p)],[1,math.sin(p)*math.tan(r),math.cos(p)*math.tan(r)],[0,math.sin(p)/math.cos(r),math.cos(p)/math.cos(r)]]),convert.ang_vel.T)
             line_vel = convert.line_vel
             b2e = body_to_earth_frame(r,p,y)
-            
+            e2b = earth_to_body_frame(r,p,y)
 
             len_pcl_pt=len(pcl)
             len_pcl_rgb=len(pcl_rgb)
@@ -799,6 +881,21 @@ if __name__ == '__main__':
                 if len_pcl_pt==len_pcl_rgb:
                     pcl_rgb=pcl_rgb[pcl_c[:,2]>0.3]
 
+            # convert.pos_wd.append(local_pos)
+            # convert.ori_wd.append(np.array([r,p,y]))
+            # if len(convert.pos_wd)>convert.wd_len:
+            #     convert.pos_wd = convert.pos_wd[1::]
+            #     convert.ori_wd = convert.ori_wd[1::]
+            # var_pos = np.var(np.array(convert.pos_wd),axis=0)
+            # var_ori = np.var(np.array(convert.ori_wd),axis=0)
+            var_pos = convert.acc_var * (pcl_time - vel_time)**4/4 + convert.acc_var * (pcl_time - vel_time)**2
+            var_ori = var_ori + convert.angvel_var * (pcl_time - vel_time)**2
+
+            # convert.vell_wd = []
+            # convert.vela_wd = []
+            # convert.acc_wd = []
+
+
             if len(pcl_sta) > static_pcl_len:
                 pcl_sta_h = pcl_sta
             elif len(pcl_sta_h) + len(pcl_sta) > static_pcl_len:
@@ -829,29 +926,31 @@ if __name__ == '__main__':
                 # print("mk3")
                 for j in range(0,len(t_pcl)-1):
                     # print("mk4")
-                    if j<len(t_pcl) and t_pcl[-1]-t_pcl[j+1]<dt:  #t_pcl[-1]-t_pcl[j]>=dt and 
-                        print('pos est time intevel:',t_pcl[-1]-t_pcl[j])
+                    if j<len(t_pcl) and t_pcl[-1]-t_pcl[j+1]<dt and t_pcl[-1]-t_pcl[j]>=dt:
+                        print('pos est time intevel:',t_pcl[-1]-t_pcl[j],j)
                         time_itv_if = 1
                         break
 
             if time_itv_if ==1:
                 time_itv_if = 0
-                # pcl_c2=pcl_h[-1]
-                # pcl_c1=pcl_h[j]
-                # rgb_c2=rgb_h[-1]
-                # rgb_c1=rgb_h[j]
-                # t_c2=t_pcl[-1]
-                # t_c1=t_pcl[j]
-                # pos_c2=pos_h[-1]
-                # pos_c1=pos_h[j]
-                pcl_c2= np.r_[pcl_h[-1],pcl_h[-2]]  #temporal overlap and filtering
-                pcl_c1= np.r_[pcl_h[j],pcl_h[j-1]] 
-                rgb_c2= np.r_[rgb_h[-1],rgb_h[-2]]
-                rgb_c1= np.r_[rgb_h[j],rgb_h[j-1]]
-                t_c2 = (t_pcl[-1] + t_pcl[-2])/2
-                t_c1 = (t_pcl[j] + t_pcl[j-1])/2
-                pos_c2 = (pos_h[-1] + pos_h[-2])/2
-                pos_c1 = (pos_h[j] + pos_h[j-1])/2
+                if j==0:
+                    pcl_c2=pcl_h[-1]
+                    pcl_c1=pcl_h[j]
+                    rgb_c2=rgb_h[-1]
+                    rgb_c1=rgb_h[j]
+                    t_c2=t_pcl[-1]
+                    t_c1=t_pcl[j]
+                    pos_c2=pos_h[-1]
+                    pos_c1=pos_h[j]
+                else:
+                    pcl_c2= np.r_[pcl_h[-1],pcl_h[-2]][::2]  #temporal overlap and filtering
+                    pcl_c1= np.r_[pcl_h[j],pcl_h[j-1]][::2]
+                    rgb_c2= np.r_[rgb_h[-1],rgb_h[-2]][::2]
+                    rgb_c1= np.r_[rgb_h[j],rgb_h[j-1]][::2]
+                    t_c2 = (t_pcl[-1] + t_pcl[-2])/2
+                    t_c1 = (t_pcl[j] + t_pcl[j-1])/2
+                    pos_c2 = (pos_h[-1] + pos_h[-2])/2
+                    pos_c1 = (pos_h[j] + pos_h[j-1])/2
                 
                 # pcl_h=pcl_h[j+1::]
                 # rgb_h=rgb_h[j+1::]
@@ -1029,13 +1128,16 @@ if __name__ == '__main__':
                         bb_space1[index1[:,0],index1[:,1],index1[:,2],:] = np.clip(np.tile((center_r/v_size)/np.linalg.norm(index1-np.mean(index1,axis=0),axis=1),(ft_vet_len,1)).T,0.6,10)*np.array([wt_pnum*num1,colors1*wt_color]).T
                         # bb_lst1.append(bb_space1)
                         
-                        disp_i = -convert.get_dplm(bb_space, bb_space1, pos_obs2_bb,clts_center[i],c_dyn_l,v_dyn_l,(t_c2-t_c1)) * v_size
+                        disp_i = -convert.get_dplm(bb_space, bb_space1, pos_obs2_bb,clts_center[i],c_dyn_l,v_dyn_l,(t_c2-t_c1),v_size) * v_size
                         v_i = disp_i/(t_c2-t_c1)
-                        
+                        if len(v_i)<3:
+                            v_i = v_i[0]
                         # c_dyn1.append(np.mean(clu_p2[i][:,0],axis=0))
                         out_velo_index = np.where(abs(v_i)>max_obs_speed*1.8)
     
-                        v_i[out_velo_index] = 0.1
+                        # v_i[out_velo_index] = 0.1
+                        print("v_i:",v_i)
+
                         # if_in_xy = (clts_center[i][0:2] > np.array([0,1])).all() and (clts_center[i][0:2] < np.array([5.0,3.3])).all() and v_i[0]<0 and clts_center[i][2] > 0.4 and local_pos1[0]>-1 and local_pos1[0]<0  # 3
                        # if_in_xy = (clts_center[i][0:2] > np.array([0,-1.5])).all() and (clts_center[i][0:2] < np.array([5.5,0.3])).all() and v_i[0]<0 and clts_center[i][2] > 0.4 and local_pos1[0]>-0.5
                         if_in_xy = 1
@@ -1048,15 +1150,16 @@ if __name__ == '__main__':
                                 matched[ii] = True
                                 break
                         if (not if_target_in) and np.linalg.norm(v_i) < 1.0*v_size/(t_c2-t_c1) and inv_flag and (len(sta_centers)==0 or (np.linalg.norm((np.array(sta_centers)-clts_center[i])[:,0:2],axis = 1) > 0.3).all()):
-                            print("static obs!",clts_center[i],disp_i,v_i,t_c2-t_c1,"static obs num:",len(sta_centers))
                             if_sta = 1
                             sta_centers.append(clts_center[i])
+                            print("static obs!",clts_center[i],np.linalg.norm((np.array(sta_centers)-clts_center[i])[:,0:2],axis = 1), disp_i,v_i,t_c2-t_c1,"static obs num:",len(sta_centers))
                          
-                        elif (not if_target_in) and np.linalg.norm(v_i) < 1.0*v_size/(t_c2-t_c1) and (not inv_flag) and (len(sta_centers)==0 or (np.linalg.norm((np.array(sta_centers)-clts_center[i])[:,0:2],axis = 1) < 1).any()):
+                        elif (not if_target_in) and np.linalg.norm(v_i) < 1.0*v_size/(t_c2-t_c1) and (not inv_flag) and (len(sta_centers) and (np.linalg.norm((np.array(sta_centers)-clts_center[i])[:,0:2],axis = 1) < 0.5).any()):
+                            print("static obs confirm!",clts_center[i],np.array(sta_centers),np.linalg.norm((np.array(sta_centers)-clts_center[i])[:,0:2],axis = 1), disp_i,v_i,t_c2-t_c1)
                             pcl_sta=pcl_sta+clu_p2[i].tolist()
                             if_sta = 1
                             
-                        elif if_in_xy and (if_target_in and (np.linalg.norm(v_i) < max_obs_speed*1.5 and len(out_velo_index[0])==0 and (np.linalg.norm(v_i[0:2])>0.1 and abs(v_i[2])/np.linalg.norm(v_i[0:2]) < 1.0))and pos_obs2[2] <0.7 and (-pos_obs2+pos_obs2_up)[2]>0.6 and (-pos_obs2+pos_obs2_up)[2]/max((-pos_obs2+pos_obs2_up)[0:2])>0.9): # 
+                        elif if_in_xy and (if_target_in or ((np.linalg.norm(v_i) < max_obs_speed*1.5 and len(out_velo_index[0])==0 and (np.linalg.norm(v_i[0:2])>0.1 and abs(v_i[2])/np.linalg.norm(v_i[0:2]) < 1.0)) and pos_obs2[2] <0.7 and (-pos_obs2+pos_obs2_up)[2]>0.6 and (-pos_obs2+pos_obs2_up)[2]/max((-pos_obs2+pos_obs2_up)[0:2])>0.9)): 
                             
                             #c_dyn1.append((clts_center[i]+(pos_obs2+pos_obs2_up)/2)/2)
                             c_dyn1.append(clts_center[i])
@@ -1064,19 +1167,20 @@ if __name__ == '__main__':
                             obsd.append(-pos_obs2+pos_obs2_up)
                             # inv_flag = abs(inv_flag-1)
                         else:
-                     	    if_sta = 1
-                    	    sta_centers.append(clts_center[i])
+                     	    # if_sta = 1
+                    	    # sta_centers.append(clts_center[i])
                             print("estimated velocity out of constrain!",clts_center[i],v_i,-disp_i/v_size)
                             # inv_flag = abs(inv_flag-1)
                            
                     else:
                         if_sta = 1
-                        sta_centers.append(clts_center[i])
+                        # sta_centers.append(clts_center[i])
                         print("no enough points in former frame!",len(points_f1))
                         # inv_flag = abs(inv_flag-1)
                 
-                if not if_sta:
-                    inv_flag = abs(inv_flag-1)
+                # if not if_sta:
+                #     inv_flag = abs(inv_flag-1)
+                print("inv_flag:",inv_flag)
                 if len(c_dyn1):
                     t_track = time.time()-t_track1
 
@@ -1100,9 +1204,13 @@ if __name__ == '__main__':
             if len(lastkf_c) or len(c_dynkf):
 
                 if last_kftime and (time.time()-last_kftime < 0.5):
-                    kf_dt = time.time()-last_kftime
+                    kf_dti = time.time()-last_kftime
                 else:
-                    kf_dt = protime
+                    kf_dti = protime
+                kf_dt_list.append(kf_dti)
+                if len(kf_dt_list) >50:
+                    kf_dt_list = kf_dt_list[1::]
+                kf_dt = np.mean(kf_dt_list)
                 last_kftime = time.time()
                 if len(lastkf_c)==0:
                     lastkf_c = np.array(c_dynkf)
@@ -1114,7 +1222,7 @@ if __name__ == '__main__':
                     for i in range(len(c_dynkf)):
                         p_mat_list.append(np.mat([[2,0],[0,2]]))
                 else:
-                    lastkf_c = np.array(lastkf_c)+kf_dt*np.array(lastkf_v)
+                    lastkf_c = np.array(lastkf_c)+kf_dti*np.array(lastkf_v)
                     lastkf_v = np.array(lastkf_v)
                     lastkf_d = np.array(lastkf_d)
                 if len(t_obs)==0:
@@ -1122,13 +1230,13 @@ if __name__ == '__main__':
                 if len(c_dynkf) and if_initial==0:
                     i = 0
                     for i in range(len(lastkf_c)):
-                        dis_gaps = np.linalg.norm((np.array(c_dynkf)-lastkf_c[i])[0:2],axis=1)
+                        dis_gaps = np.linalg.norm((np.array(c_dynkf)-lastkf_c[i])[:,0:2],axis=1)
                         mingap_kf = min(dis_gaps)
-                        if mingap_kf < 1.0:
+                        if mingap_kf < 0.5:
                             index_kf = np.where(dis_gaps==mingap_kf)[0][0]
                           
-                            print("position matched!",mingap_kf,np.linalg.norm(v_dynkf[index_kf]-lastkf_v[i]))
-                            if  math.acos(convert.ang_cos(v_dynkf[index_kf],lastkf_v[i]))< 3.5 or (v_dynkf[index_kf] -lastkf_v[i]==0).all(): #np.linalg.norm(v_dynkf[index_kf]-lastkf_v[i])
+                            print("position matched!",mingap_kf,np.linalg.norm(v_dynkf[index_kf]-lastkf_v[i]),math.acos(convert.ang_cos(v_dynkf[index_kf],lastkf_v[i])),v_dynkf[index_kf],lastkf_v[i])
+                            if  math.acos(convert.ang_cos(v_dynkf[index_kf],lastkf_v[i]))< 3.14/4 or (v_dynkf[index_kf] -lastkf_v[i]==0).all(): #np.linalg.norm(v_dynkf[index_kf]-lastkf_v[i])
                                 
                                 observe_tk.append(index_kf)
                                 kf_tk.append(i)
@@ -1140,7 +1248,9 @@ if __name__ == '__main__':
                                 if_track.append(1)
                             else:
                                 if_track.append(0)
+                                print("kf tracking fail-pm!",mingap_kf,(np.array(c_dynkf)-lastkf_c[i])[:,0:2],lastkf_c[i],np.array(c_dynkf))
                         else:
+                            print("kf tracking fail!",mingap_kf,(np.array(c_dynkf)-lastkf_c[i])[:,0:2],lastkf_c[i],np.array(c_dynkf))
                             if_track.append(0)
                     
                         
@@ -1152,6 +1262,7 @@ if __name__ == '__main__':
                         lastkf_d = np.r_[lastkf_d,np.array(obsdkf)[new_obs_index]]
                         if_track += [0]*len(new_obs_index)
                         t_obs = np.r_[t_obs,np.ones(len(new_obs_index))*time.time()]
+                        # print("kfnew obs added!",lastkf_c,new_obs_index)
                         for i in range(len(new_obs_index)):
                             p_mat_list.append(np.mat([[2,0],[0,2]]))
                 else:
@@ -1170,6 +1281,8 @@ if __name__ == '__main__':
                     t_obs = np.delete(t_obs,del_which)
                     continue
                 # set initial value
+                # q_mat = np.mat([[0.01, 0], [0, 0.01]])
+                q_mat = np.mat([[kf_dt**2/4,kf_dt**3/2],[kf_dt**3/2,kf_dt**2]])*10 #10: the variance of the acceleration of walking human
                 if kk in kf_tk:
                     obv_index = observe_tk[kf_tk.index(kk)]
                     z_mat = np.mat([c_dynkf[obv_index],v_dynkf[obv_index]])
@@ -1177,20 +1290,32 @@ if __name__ == '__main__':
                     
                 else:
                     z_mat = np.mat([lastkf_c[kk],lastkf_v[kk]])
-                var_p = 0.00375*np.inner(local_pos-z_mat[0],local_pos-z_mat[0])
-
+                    # r_mat = q_mat
+                    # print("r_mat-p:",r_mat,t_c2-t_c1,kf_dti)
+                # var_p = 1.6*1.6
+                # print("var_p:",var_p,kf_dt)
                 p_mat = p_mat_list[kk]
-                x_mat =  np.mat([lastkf_c[kk]-kf_dt*lastkf_v[kk],lastkf_v[kk]])
+                x_mat =  np.mat([lastkf_c[kk]-kf_dti*lastkf_v[kk],lastkf_v[kk]])
 
-                q_mat = np.mat([[0.01, 0], [0, 0.01]])
                 
-                f_mat = np.mat([[1, kf_dt], [0, 1]])     # State transition matrix
+                f_mat = np.mat([[1, kf_dti], [0, 1]])     # State transition matrix
               
 #                                    q_mat = np.mat([[0.1, 0], [0, 0.1]])
-               
+                var_p = 0.00375*np.inner(local_pos-z_mat[0],local_pos-z_mat[0]) #RMSE
+                var_p = var_p[0,0]
+                # print("e2b:",e2b,z_mat[0] - local_pos)
+                bx ,by, bz = np.reshape(np.matmul(e2b,(np.array(z_mat[0]) - local_pos).T),3)
+                # print("bx,by,bz:",bx,by,bz,z_mat[0], np.matmul(e2b,(np.array(z_mat[0]) - local_pos).T))
+                var_pos_pcl = np.mean(np.matmul(var_B2E(r,p,y,bx,by,bz),var_ori.T).T)
+                var_p += (var_pos_pcl + np.mean(var_pos)+0.1)  # 0.1 for the variance from human body posture movement 
+                print("var_P:",var_pos_pcl, np.mean(var_pos),var_ori)
+                var_v = 2*var_p/(t_c2-t_c1)**2-2*var_p+(v_size)**2/3
+                r_mat = np.mat([[var_p,(var_p*var_v)**0.5],[(var_p*var_v)**0.5, var_v]])
+                print("r_mat-o:",r_mat,t_c2-t_c1,kf_dti)
                 h_mat = np.mat([[1, 0],[0,1]])  #State observation matrix
-                r_mat = np.mat([[var_p,var_p/kf_dt],[var_p/kf_dt,var_p/(kf_dt**2)＋(v_size)**2/12]])    #0.5: depth variance for this object at the Z-cam distance. State observation noise Covariance matrix
- 
+                # r_mat = np.mat([[var_p,var_p/(kf_dt)],[var_p/(kf_dt), var_p/(kf_dt)+(v_size)**2/12]])
+              #  r_mat = np.mat([3])
+                #var_p: depth variance for this object at the Z-cam distance. State observation noise Covariance matrix
                 x_predict = f_mat * x_mat
                 p_predict = f_mat * p_mat * f_mat.T + q_mat
                 kalman = p_predict * h_mat.T / (h_mat * p_predict * h_mat.T + r_mat)
@@ -1203,13 +1328,14 @@ if __name__ == '__main__':
                     v_dyn_l.append(list(np.array(x_mat)[1]))
                     d_dyn_l.append(lastkf_d[kk])
                     p_mat_l.append(p_mat)
-                    if kk in kf_tk:
-                        c_dyn_tk.append(list(np.array(x_mat)[0]))
-                        v_dyn_tk.append(list(np.array(x_mat)[1]))
-                        d_dyn_tk.append(lastkf_d[kk])
+                    # if kk in kf_tk:
+                    #     c_dyn_tk.append(list(np.array(x_mat)[0]))
+                    #     v_dyn_tk.append(list(np.array(x_mat)[1]))
+                    #     d_dyn_tk.append(lastkf_d[kk])
                 else:
                     del if_track[del_which]
                     t_obs = np.delete(t_obs,del_which)
+                    print("obstacle too close!",np.array(x_mat)[0],np.array(c_dyn_l))
                # print("KF is used!!")
 #                                    c_dynkf=c_dyn_l
 #                                    v_dynkf=v_dyn_l
@@ -1229,10 +1355,9 @@ if __name__ == '__main__':
             if len(c_dyn1)>0:
                 pcl1 = np.array([[1,2,3]])
                 for kk in range(len(clts_center)):
-                    if (np.linalg.norm(c_dyn1-clts_center[kk],axis = 1) < 0.2).any():
-			pcl1 = np.r_[pcl1,np.array(clu_p2[kk][::2])]
+                    if(np.linalg.norm(c_dyn1-clts_center[kk],axis = 1) < 0.2).any():
+                        pcl1 = np.r_[pcl1,np.array(clu_p2[kk][::2])]
                         continue
-                  
                     pcl1 = np.r_[pcl1,np.array(clu_p2[kk])]
                 pcl1 = pcl1[1::]
             elif len(pcl_h):

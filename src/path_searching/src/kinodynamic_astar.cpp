@@ -141,7 +141,7 @@ int KinodynamicAstar::search(Eigen::Vector3d start_pt, Eigen::Vector3d start_v, 
     cur_node->node_state = IN_CLOSE_SET;
     iter_num_ += 1;
 
-    double res = 1 / 2.0, time_res = 1 / 1.0, time_res_init = 1 / 20.0;
+    double res = 1 / acc_sample_num_, time_res = 1 / 1.0, time_res_init = 1 / 20.0;
     Eigen::Matrix<double, 6, 1> cur_state = cur_node->state;
     Eigen::Matrix<double, 6, 1> pro_state;
     vector<PathNodePtr> tmp_expand_nodes;
@@ -155,7 +155,7 @@ int KinodynamicAstar::search(Eigen::Vector3d start_pt, Eigen::Vector3d start_v, 
       for (double tau = time_res_init * init_max_tau_; tau <= init_max_tau_ + 1e-3;
            tau += time_res_init * init_max_tau_)
         durations.push_back(tau);
-      init_search = false;
+      
     }
     else
     {
@@ -170,7 +170,7 @@ int KinodynamicAstar::search(Eigen::Vector3d start_pt, Eigen::Vector3d start_v, 
         durations.push_back(tau);
     }
 
-    // cout << "cur state:" << cur_state.head(3).transpose() << endl << cur_state.tail(3).transpose()<<endl<<allocate_num_<<endl;
+    // cout << "cur state:" << cur_state.head(3).transpose() << endl << cur_state.tail(3).transpose()<<endl<<allocate_num_<<endl<<inputs.size()<<endl<<init_search<<endl;
     for (size_t i = 0; i < inputs.size(); ++i)
       for (size_t j = 0; j < durations.size(); ++j)
       {
@@ -195,10 +195,11 @@ int KinodynamicAstar::search(Eigen::Vector3d start_pt, Eigen::Vector3d start_v, 
         // Check maximal velocity
         Eigen::Vector3d pro_v = pro_state.tail(3);
         if (fabs(pro_v(0)) > max_vel_ || fabs(pro_v(1)) > max_vel_ || fabs(pro_v(2)) > max_vel_)
-        {
+        { 
           if (init_search)
-            std::cout << "vel" << std::endl;
-          continue;
+            {std::cout << "vel: " << pro_v<<"  "<<max_vel_<<std::endl;}
+          else
+          {continue;}
         }
 
         // Check not in the same voxel
@@ -210,7 +211,7 @@ int KinodynamicAstar::search(Eigen::Vector3d start_pt, Eigen::Vector3d start_v, 
             std::cout << "same" << std::endl;
           continue;
         }
-        // cout << "check safety" <<endl;
+        
         // Check safety
         Eigen::Vector3d pos;
         Eigen::Matrix<double, 6, 1> xt;
@@ -224,8 +225,9 @@ int KinodynamicAstar::search(Eigen::Vector3d start_pt, Eigen::Vector3d start_v, 
           stateTransit(cur_state, xt, um, dt);
           pos = xt.head(3);
           // if (edt_environment_->sdf_map_->getInflateOccupancy(pos) == 1 )
+          
           if (!checkSafety (pos, current_time))
-          {
+          { cout << "check safe fail:" <<pos<<endl;
             is_occ = true;
             break;
           }
@@ -241,7 +243,7 @@ int KinodynamicAstar::search(Eigen::Vector3d start_pt, Eigen::Vector3d start_v, 
         tmp_g_score = (um.squaredNorm() + w_time_) * tau + cur_node->g_score;
         tmp_f_score = tmp_g_score + lambda_heu_ * estimateHeuristic(pro_state, end_state, time_to_goal);
         
-        // cout << "" <<endl;
+        // cout << "score of the node: "<<tmp_g_score<<"  "<< tmp_f_score <<endl;
         // Compare nodes expanded from the same parent
         bool prune = false;
         for (size_t j = 0; j < tmp_expand_nodes.size(); ++j)
@@ -320,7 +322,7 @@ int KinodynamicAstar::search(Eigen::Vector3d start_pt, Eigen::Vector3d start_v, 
           }
         }
       }
-    // init_search = false;
+  init_search = false;
   }
 
   cout << "open set empty, no path!" << endl;
@@ -345,6 +347,7 @@ void KinodynamicAstar::setParam(ros::NodeHandle& nh)
   nh.getParam("search/check_num", check_num_);
   nh.getParam("search/optimistic", optimistic_);
   nh.getParam("search/safety_radius", S_r);
+  nh.getParam("search/acc_sample_num_", acc_sample_num_);
   tie_breaker_ = 1.0 + 1.0 / 10000;
 
   double vel_margin;
