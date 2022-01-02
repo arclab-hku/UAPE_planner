@@ -15,7 +15,7 @@
 using namespace std;
 using namespace Eigen;
 
-#define CtrlFreq 80
+#define CtrlFreq 100
 #define MaxVel 2.0
 
 unique_ptr<KinodynamicAstar> kino_path_finder_;
@@ -76,6 +76,7 @@ int main(int argc, char **argv)
     Eigen::Vector3d g_goal = {goalp[0],goalp[1],goalp[2]};
     Eigen::Vector3d goal;
     bool if_initial = true;
+    double ball_pass_time = 0.0;
     // cout << "mk1" << endl;
         
     reference.read_param(&nh);
@@ -157,14 +158,27 @@ int main(int argc, char **argv)
        // cout << "(corridor not update)" << endl;
     }
     else{
+
+    state = flying.get_state();
     flying.set_cod_update(false);
     flying.set_pcl_update(false);
-    state = flying.get_state();
-    // ct_pos = state.P_E;
-    // ct_vel = state.V_E;
-    // ct_acc = state.A_E;
+    if (flying.dynobs_pointer->ball_number>0 && (flying.dynobs_pointer->ballvel[0](0) > -0.2)) // || ros::Time::now().toSec()-flying.dynobs_pointer->ball_time_stamp > ball_pass_time
+    { cout<<"dyn ball from backside: "<<flying.dynobs_pointer->ballvel[0]<<endl;
+      flying.dynobs_pointer->ball_number = 0;
+      // double p_gap = flying.dynobs_pointer->ballpos[0](0) - ct_pos(0);
+      // double ball_pass_time1 = (-flying.dynobs_pointer->ballvel[0](0) + sqrt(pow(flying.dynobs_pointer->ballvel[0](0),2)-2*flying.dynobs_pointer->ballacc[0](0)*p_gap))/(2*p_gap);
+      // double ball_pass_time2 = (-flying.dynobs_pointer->ballvel[0](0) - sqrt(pow(flying.dynobs_pointer->ballvel[0](0),2)-2*flying.dynobs_pointer->ballacc[0](0)*p_gap))/(2*p_gap);
+      // if (ball_pass_time1>0)
+      // {ball_pass_time = ball_pass_time1;}
+      // else if (ball_pass_time2>0)
+      // {ball_pass_time = ball_pass_time2;}
+      // else{ball_pass_time = 2;}
+      // cout<<"ball_pass_time: "<<ball_pass_time<<endl;
+    }
+
     if (if_initial || !ifMove)
-    { ct_pos = state.P_E;
+    {
+    ct_pos = state.P_E;
     ct_vel = state.V_E;
     ct_acc = state.A_E;}
     else{
@@ -206,7 +220,12 @@ int main(int argc, char **argv)
     if (status != KinodynamicAstar::NO_PATH){
     kino_path_finder_->getSamples(0.3, waypoints,start_end_derivatives);}
     }
-    else {cout << "[kino replan]: Old kino path is safe" << endl;}}
+    else {cout << "[kino replan]: Old kino path is safe" << endl;}
+    }
+    else
+    {waypoints.clear();
+     waypoints.emplace_back(ct_pos);
+     waypoints.emplace_back(goal);}
     cout << "Goal:\n" << goal << endl <<g_goal<<endl;
     cout << "the updated waypoints:" << waypoints[0] << endl << waypoints.back()<<endl;
     MatrixXd waypoints_m = Map<MatrixXd>(waypoints[0].data(),3,waypoints.size());
@@ -292,10 +311,6 @@ int main(int argc, char **argv)
         if (flying.dynobs_pointer->ball_number >0)
         {
          flying.pub_ballstates();
-         if (ros::Time::now().toSec() - flying.dynobs_pointer->ball_time_stamp > 1.5)
-         {
-           flying.dynobs_pointer->ball_number = 0;
-         }
         }
     ros::Duration(1/CtrlFreq).sleep();
     if (if_initial)

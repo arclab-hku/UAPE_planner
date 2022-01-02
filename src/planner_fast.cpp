@@ -76,7 +76,7 @@ bool TrajectoryGenerator_fast::check_polyH_safe (const double start_t, const Mat
  double start_t1 = plan_t - start_t;
  check_sfc_ind = 0;
  Vector3d pos;
- double dt = 0.1;
+ double dt = 0.05;
 
  bool old_plhd_safe = true;
  Polyhedron3D poly = decompPolys[check_sfc_ind];
@@ -145,7 +145,7 @@ total_t = traj.getTotalDuration();
   pt[1] = pos(1);
   pt[2] = pos(2);
   if (!dyn_safe_check(pos,j+start_t))
-  {cout<< "dyn check fail!"<<endl;
+  {cout<< "dyn check fail!  "<<dynobs_pointer->ballvel[0]<<endl;
     return false;}
   if (old_plhd_safe)
   {continue;}
@@ -275,6 +275,21 @@ void TrajectoryGenerator_fast::gen_polyhedrons(vec_Vec3f *obs_pointer)
         else{i+=1;}
     }
     cout << "Number of polyhedrons: " << decompPolys.size() << endl;
+    if (decompPolys.size()<2)
+    {   vec_Vec3f line;
+        Vector3d midpt = (wPs[0]+wPs.back())/2;
+        line.push_back(midpt);
+        line.push_back(wPs.back());
+        decomp_util.dilate(line);
+        Polyhedron3D poly = decomp_util.get_polyhedrons()[0];
+        //Ellipsoid3D ellip = decomp_util.get_ellipsoids()[0];
+        decompPolys.push_back(poly);
+        // line[0] = wPs.back();
+        // decomp_util.dilate(line);
+        // Polyhedron3D poly = decomp_util.get_polyhedrons()[0];
+        // //Ellipsoid3D ellip = decomp_util.get_ellipsoids()[0];
+        // decompPolys.push_back(poly);
+        }
     for (size_t i = 0; i < decompPolys.size(); i++)
     {
         decompPolys[i].add(Plane3D(Eigen::Vector3d(0.0, 0.0, config.mapHeight),

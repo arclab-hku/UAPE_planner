@@ -727,18 +727,21 @@ if __name__ == '__main__':
     dt=0.25       # time gap bewteen two neighbor point cloud frames
     max_obs_size = 3.5 # max size of obstacle BB, x-y-z
     max_obs_speed = 2.5 # Prior Knowledge of the maximal object speed
-    n_p=18        #params for DBSCAN
-    r_p = 0.3
+    n_p=35        #params for DBSCAN, if no voxel filter is used. 18 for voxel filter size 0.1
+    r_p = 0.25
     mask_thr = 0.3 #the thredshold for the static block mask ratio to abandon the current cluster. If the masked blockes/current cluster's total blockes is greater than mask_thr, this cluster is abandoned.
     last_kftime = 0
-    wt_pnum = 3.0    # weight for the number of the points in one voxel
+    wt_pnum = 4.0    # weight for the number of the points in one voxel
     wt_color = 4*1e39  # weight for the color information of the colorful point cloud
     ft_vet_len = 2   # feature vector length for each voxel. Here only the mean of color and number of the points in the voxel are considered.
-    xb,yb,zb = 0.12,0,0.00  # Mounting matrix of the camera.
+   # xb,yb,zb = 0.12,0,0.00  # Mounting matrix of the camera in sim.
+    xb,yb,zb = 0.06,0,0.02  # Mounting matrix of the camera in hw.
     static_pcl_len = 1000   #Maximal memorized static point cloud (i.e., the map) size
     kf_predtime = 0.5   #Maximal predicting time in a KF for an object if no more observation can be matched
     convert.max_vvn = int(max_obs_speed*dt/v_size)+1
     pub_pcl_size = 500
+    floor_ht = 0.1  # floor cut off height
+    downsp = 5  #down sampling ratio, at least 2 if use the neighbor overlapping
     pcl_h=[]
     pcl_h_l=[]
     rgb_h=[]
@@ -827,7 +830,7 @@ if __name__ == '__main__':
                 convert.ori_wd = convert.ori_wd[1::]
             # var_pos = np.var(np.array(convert.pos_wd),axis=0)
             var_ori = np.var(np.array(convert.ori_wd),axis=0)
-            print("var_ori:",var_ori)
+            print("var_ori:",var_ori,convert.ang_vel)
             # convert.pcl_pt=convert.pcl[0]
             # convert.pcl_rgb=convert.pcl[1]
             pcl_rgb=np.array(convert.pcl[1])
@@ -836,11 +839,12 @@ if __name__ == '__main__':
             pcl_time = convert.pcl_time
             pos_time = convert.pos_time
             vel_time = convert.vel_time
+            line_vel = convert.line_vel
            # print(np.matmul(np.array([[1,math.sin(p)*math.tan(r),math.cos(p)*math.tan(r)],\
            # [0,math.cos(p),-math.sin(p)],[0,math.sin(p)/math.cos(r),math.cos(p)/math.cos(r)]]),convert.ang_vel.T))
             r,p,y = np.array([r,p,y])+(pcl_time - vel_time)*np.matmul(np.array([
             [0,math.cos(p),-math.sin(p)],[1,math.sin(p)*math.tan(r),math.cos(p)*math.tan(r)],[0,math.sin(p)/math.cos(r),math.cos(p)/math.cos(r)]]),convert.ang_vel.T)
-            line_vel = convert.line_vel
+            
             b2e = body_to_earth_frame(r,p,y)
             e2b = earth_to_body_frame(r,p,y)
 
@@ -862,7 +866,9 @@ if __name__ == '__main__':
                     local_pos1=np.array([px,py,pz])
                     local_pos1 = (pcl_time - pos_time)*line_vel + local_pos1
                     pcl_c=np.matmul(b2e,pcl_c.T).T+np.tile(local_pos1,(len(pcl_c),1))  # convert coordinate from B to E
-                    pcl_c[:,2] -= np.min(pcl_c[::5][:,2])
+                    # min_z = np.min(pcl_c[::5][:,2])
+                    # pcl_c[:,2] -= max(0,min_z)
+                    # print("min_z:",min_z)
                 else:
                     pcl_c=[]
             elif len(pcl)>0:
@@ -877,9 +883,9 @@ if __name__ == '__main__':
 
             if len(pcl_c)>0:
                 local_pos=local_pos1
-                pcl1=pcl_c[pcl_c[:,2]>0.3]
+                pcl1=pcl_c[pcl_c[:,2]>floor_ht]
                 if len_pcl_pt==len_pcl_rgb:
-                    pcl_rgb=pcl_rgb[pcl_c[:,2]>0.3]
+                    pcl_rgb=pcl_rgb[pcl_c[:,2]>floor_ht]
 
             # convert.pos_wd.append(local_pos)
             # convert.ori_wd.append(np.array([r,p,y]))
@@ -943,10 +949,10 @@ if __name__ == '__main__':
                     pos_c2=pos_h[-1]
                     pos_c1=pos_h[j]
                 else:
-                    pcl_c2= np.r_[pcl_h[-1],pcl_h[-2]][::2]  #temporal overlap and filtering
-                    pcl_c1= np.r_[pcl_h[j],pcl_h[j-1]][::2]
-                    rgb_c2= np.r_[rgb_h[-1],rgb_h[-2]][::2]
-                    rgb_c1= np.r_[rgb_h[j],rgb_h[j-1]][::2]
+                    pcl_c2= np.r_[pcl_h[-1],pcl_h[-2]][::downsp]  #temporal overlap and filtering
+                    pcl_c1= np.r_[pcl_h[j],pcl_h[j-1]][::downsp]
+                    rgb_c2= np.r_[rgb_h[-1],rgb_h[-2]][::downsp]
+                    rgb_c1= np.r_[rgb_h[j],rgb_h[j-1]][::downsp]
                     t_c2 = (t_pcl[-1] + t_pcl[-2])/2
                     t_c1 = (t_pcl[j] + t_pcl[j-1])/2
                     pos_c2 = (pos_h[-1] + pos_h[-2])/2
@@ -981,7 +987,7 @@ if __name__ == '__main__':
                     rgb_p2.append(rgb_cluster)
                     clts_center.append(np.mean(one_cluster,axis=0))
 
-                pcl_clust = copy.copy(clu_p2)
+                # pcl_clust = copy.copy(clu_p2)
                 clu_c1=np.array(clu_c1)
                 clu_c2=np.array(clu_c2)
                 fea_1=np.array(fea_1)
@@ -1037,7 +1043,7 @@ if __name__ == '__main__':
                         targets.append(target)
                         matched.append(False)
                 for i in range(n_clusters2_):
-                    if i in remove_index :
+                    if (i in remove_index) or (len(clu_p2[i])<n_p*2):
                         # inv_flag = abs(inv_flag-1)
                        
                         continue
@@ -1076,9 +1082,9 @@ if __name__ == '__main__':
                             # sta_mask = (index2[:, None] != sta_index).any(-1).all(1)
                             # sta_mask = (np.sum(abs(index2[:, None] - sta_index),axis=2)>1).all(1)
                             sta_mask = (np.max(abs(index2[:, None] - sta_index),axis=2)>1).all(1)
-                            if sum(sta_mask==False) > min(mask_thr*n_p,mask_thr*len(index2)) or sum(sta_mask)<0.5*n_p: #sum(sta_mask)<0.5*n_p:
-                                print("remained dyn points too few",sum(sta_mask),clts_center[i])
-                                # inv_flag = abs(inv_flag-1)
+                            if (1-sum(sta_mask)/float(len(sta_mask))) >0.6 or sum(sta_mask)<0.5*n_p: #sum(sta_mask)<0.5*n_p:  min(mask_thr*n_p,mask_thr*len(index2)) 
+                                print("remained dyn points too few-1",sum(sta_mask),sum(sta_mask==False),clts_center[i])
+                                # inv_flag = abs(inv_flag-1) , len(sta_index),len(sta_mask),(1-sum(sta_mask)/float(len(sta_mask))),
                                 
                                 continue
                             index2 = index2[sta_mask]
@@ -1105,8 +1111,8 @@ if __name__ == '__main__':
                             # sta_mask = (index1[:, None] != sta_index).any(-1).all(1)
                             # sta_mask = (np.sum(abs(index1[:, None] - sta_index),axis=2)>1).all(1)
                             sta_mask = (np.max(abs(index1[:, None] - sta_index),axis=2)>1).all(1)
-                            if sum(sta_mask==False) > min(mask_thr*n_p,mask_thr*len(index1)) or sum(sta_mask)<0.5*n_p:#sum(sta_mask) < min(mask_thr*n_p,mask_thr*len(index1)):
-                                print("remained dyn points too few",sum(sta_mask),clts_center[i])
+                            if (1-sum(sta_mask)/float(len(sta_mask))) >0.6 or sum(sta_mask)<0.5*n_p:#sum(sta_mask==False) > min(mask_thr*n_p,mask_thr*len(index1)) 
+                                print("remained dyn points too few-2",sum(sta_mask),clts_center[i])
                                 # inv_flag = abs(inv_flag-1)
                                
                                 continue
@@ -1149,13 +1155,13 @@ if __name__ == '__main__':
                                 print("matched!",clts_center[i],targets[ii])
                                 matched[ii] = True
                                 break
-                        if (not if_target_in) and np.linalg.norm(v_i) < 1.0*v_size/(t_c2-t_c1) and inv_flag and (len(sta_centers)==0 or (np.linalg.norm((np.array(sta_centers)-clts_center[i])[:,0:2],axis = 1) > 0.3).all()):
+                        if (not if_target_in) and np.linalg.norm(v_i) < 1.5*v_size/(t_c2-t_c1) and inv_flag and (len(sta_centers)==0 or (np.linalg.norm((np.array(sta_centers)-clts_center[i])[:,0:2],axis = 1) > 0.3).all()):
                             if_sta = 1
                             sta_centers.append(clts_center[i])
-                            print("static obs!",clts_center[i],np.linalg.norm((np.array(sta_centers)-clts_center[i])[:,0:2],axis = 1), disp_i,v_i,t_c2-t_c1,"static obs num:",len(sta_centers))
+                            # print("static obs!",clts_center[i],np.linalg.norm((np.array(sta_centers)-clts_center[i])[:,0:2],axis = 1), disp_i,v_i,t_c2-t_c1,"static obs num:",len(sta_centers))
                          
-                        elif (not if_target_in) and np.linalg.norm(v_i) < 1.0*v_size/(t_c2-t_c1) and (not inv_flag) and (len(sta_centers) and (np.linalg.norm((np.array(sta_centers)-clts_center[i])[:,0:2],axis = 1) < 0.5).any()):
-                            print("static obs confirm!",clts_center[i],np.array(sta_centers),np.linalg.norm((np.array(sta_centers)-clts_center[i])[:,0:2],axis = 1), disp_i,v_i,t_c2-t_c1)
+                        elif (not if_target_in) and np.linalg.norm(v_i) < 1.5*v_size/(t_c2-t_c1) and (not inv_flag) and (len(sta_centers) and (np.linalg.norm((np.array(sta_centers)-clts_center[i])[:,0:2],axis = 1) < 0.5).any()):
+                            # print("static obs confirm!",clts_center[i],np.array(sta_centers),np.linalg.norm((np.array(sta_centers)-clts_center[i])[:,0:2],axis = 1), disp_i,v_i,t_c2-t_c1)
                             pcl_sta=pcl_sta+clu_p2[i].tolist()
                             if_sta = 1
                             

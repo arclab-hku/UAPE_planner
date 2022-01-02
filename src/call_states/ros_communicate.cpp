@@ -232,7 +232,7 @@ void  Listener::ballCb(const obj_state_msgs::ObjectsStates::ConstPtr & msg)
     dynobs.ballacc[i] = dynobs.ballacc[i];//+A_E;
     dynobs.ball_sizes[i](0) = 0.6;
     dynobs.ball_sizes[i](1) = 0.6;
-    dynobs.ball_sizes[i](2) = 0.8;
+    dynobs.ball_sizes[i](2) = 0.6;
     // cout << "ball received,  number: " <<  dynobs.ball_number << "   ball pos:  " <<dynobs.ballpos[i]<<endl;
     }
     

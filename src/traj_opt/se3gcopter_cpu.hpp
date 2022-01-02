@@ -230,9 +230,9 @@ private:
         double vMaxSqr;
         if (dynobs_pointer->ball_number >0)
         {if (vMax <= 2)
-        {vMaxSqr = 16.0;}
+        {vMaxSqr = 32.0;}
         else{
-            vMaxSqr = vMax * vMax*4;}
+            vMaxSqr = vMax * vMax*8;}
          }
         // else if (dynobs_pointer->dyn_number >0)
         // {vMaxSqr = vMax * vMax*2;}
@@ -276,16 +276,21 @@ private:
         double omg,violaPos,violaPosPenaD,violaPosPena;
         double t_gap,t_now;
         double wei_dyn = ci(0)*5;
-        double wei_ball = ci(0)*200;
+        double wei_ball = ci(0)*20;
         int innerLoop,idx;
         constexpr double inv_a2 = 1 / 2.0 / 2.0, inv_b2 = 1.0;
         
         for (int i = 0; i < N; i++)
         {
             const auto &c = b.block<6, 3>(i * 6, 0);
-            step = T1(i) / cons(i);
             s1 = 0.0;
+            step = T1(i) / cons(i);
             innerLoop = cons(i) + 1;
+            if (dynobs_pointer->ball_number >0 && step > 0.1)
+            {step = 0.1;
+             innerLoop = int(T1(i)/step)+1;}
+            
+            
             
             for (int j = 0; j < innerLoop; j++)
             {   
@@ -500,9 +505,10 @@ private:
                 // cout << "mk321" <<endl<<t_gap<<endl<<m<<"  j: "<<j<<"  innerloop:  "<<innerLoop<<endl;
                 ct_center = dynobs_pointer->ballpos[m] +  t_gap*dynobs_pointer->ballvel[m] + 0.5* t_gap* t_gap*dynobs_pointer->ballacc[m];
                 Eigen::Vector3d check_vec=((ct_center - pos).cwiseAbs() - dynobs_pointer->ball_sizes[m]*0.5);
-                if ((check_vec.array()<0.0).all())
+                if ((ct_center - pos).norm()<dynobs_pointer->ball_sizes[m](0)*0.5) //((check_vec.array()<0.0).all())
                 { double sa = dynobs_pointer->ball_sizes[m].squaredNorm()/4;
                 //Eigen::Vector3d dist_vec = pos - ct_center;
+                // cout<<"check_vec,ct_center,pos:\n"<<check_vec<<",   \n"<<ct_center<<",   \n"<<pos<<endl<<t_gap<<endl<<dynobs_pointer->ball_sizes[m](0)*0.5<<endl<<(ct_center - pos).norm()<<endl;
                 Eigen::Vector3d dist_vec = pos - ct_center;
                 double ellip_dist2 = dist_vec(2) * dist_vec(2) * inv_a2 + (dist_vec(0) * dist_vec(0) + dist_vec(1) * dist_vec(1)) * inv_b2;
                 double dist2_err = sa - ellip_dist2;
@@ -514,6 +520,7 @@ private:
                 Eigen::Vector3d dJ_dP = wei_ball * 3 * dist2_err2 * (-2) * Eigen::Vector3d(inv_b2 * dist_vec(0), inv_b2 * dist_vec(1), inv_a2 * dist_vec(2));  //gradient!
                 gdC.block<6, 3>(i * 6, 0) += beta0 * dJ_dP.transpose()* omg * step;
                 gdT(i) += omg * (wei_ball * dist2_err3 / innerLoop + step * dJ_dP.dot(vel - dynobs_pointer->ballvel[m])*j/innerLoop);
+                // cout<<"gradient: "<<beta0 * dJ_dP.transpose()* omg * step<<"\n"<<omg * (wei_ball * dist2_err3 / innerLoop + step * dJ_dP.dot(vel - dynobs_pointer->ballvel[m])*j/innerLoop)<<endl;
                 double grad_prev_t = dJ_dP.dot(-dynobs_pointer->ballvel[m]);
                 if (i > 0)
                 {
@@ -547,7 +554,7 @@ private:
         // double endtime=(double)(end_time-start_time)/CLOCKS_PER_SEC;
         // compute_time+=endtime;
         cost += pena;
-        cout << "cost in constrain: " << cost << " pena_ball: "<<pena_ball<<endl;
+        cout << "accumulate pena: " << cost << " pena: "<<pena<< " pena_ball: "<<pena_ball<<endl;
         return;
     }
 

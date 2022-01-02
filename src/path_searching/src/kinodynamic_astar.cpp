@@ -46,6 +46,9 @@ int KinodynamicAstar::search(Eigen::Vector3d start_pt, Eigen::Vector3d start_v, 
   start_acc_ = start_a;
   
   goal_ = end_pt;
+  if(!checkSafety (goal_, -1.0))
+  { std::cout << "goal is occupied!" << std::endl;
+    return NO_PATH;}
   // cout<<"mark"<<endl;
   PathNodePtr cur_node = path_node_pool_[0];
   cur_node->parent = NULL;

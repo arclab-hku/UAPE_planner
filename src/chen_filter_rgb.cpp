@@ -61,35 +61,48 @@ cloud_cb (const sensor_msgs::PointCloud2ConstPtr& cloud_msg)
 
 
     // Perform the actual filtering-1
+    if (cut_dis<0)
+      {cloud_filtered = raw_cloud;}
+    else{
     pcl::PassThrough<pcl::PointXYZRGB> pass;
     pass.setInputCloud (raw_cloud);
     pass.setFilterFieldName ("z");
     pass.setFilterLimits (0, cut_dis);
-    pass.filter (*cloud_filtered);
+    pass.filter (*cloud_filtered);}
 
 
 
 
 
     // Perform the actual filtering-2
+    if (voxel_size<0)
+      {voxel_filtered = cloud_filtered;}
+    else{
     pcl::VoxelGrid<pcl::PointXYZRGB> sor;
     sor.setInputCloud (cloud_filtered);
     sor.setLeafSize (voxel_size,voxel_size, voxel_size);
-    sor.filter (*voxel_filtered);
+    sor.filter (*voxel_filtered);}
 
 
     // Perform the actual filtering-3
+    if (n_n<0 || n_r<0)
+      {r_filtered = voxel_filtered;}
+    else{
     pcl::RadiusOutlierRemoval<pcl::PointXYZRGB> outrem;
     outrem.setInputCloud(voxel_filtered);
     outrem.setRadiusSearch(n_r);
     outrem.setMinNeighborsInRadius (n_n);
-    outrem.filter (*r_filtered);
+    outrem.filter (*r_filtered);}
 
+    if (MK<0 || stdthr<0)
+    {sta_filtered = r_filtered;}
+    else
+    {
     pcl::StatisticalOutlierRemoval<pcl::PointXYZRGB> sta;
     sta.setInputCloud(r_filtered);
     sta.setMeanK(MK);
     sta.setStddevMulThresh(stdthr);
-    sta.filter(*sta_filtered);
+    sta.filter(*sta_filtered);}
 
 
     // Convert to ROS data type
