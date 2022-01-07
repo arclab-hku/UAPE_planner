@@ -4,24 +4,25 @@
         
 <param name="input"       type="string" value="/camera/depth/color/points"/> 
 
-
-<param name="use_current_time"       type="bool" value="false"/> 
+<!-- params for hardware camera: (decimation = 4, original depth resolution: 848*480, high accuracy mode) -->
+<!-- <param name="use_current_time"       type="bool" value="false"/> 
 
 <param name="cut_dis"       type="double" value="-6.0"/> 
-<param name="voxel_size"       type="double" value="-0.1"/>    <!--if the param is nagetive, the cooresponding filter is not used-->
+<param name="voxel_size"       type="double" value="-0.1"/>    if the param is nagetive, the cooresponding filter is not used. For simulation, a voxel filter is necessary, or the pointcloud data may contains NaN values (ifdense=false), and the radius filter won't work
 
 <param name="n_r"       type="double" value="0.24"/> 
 <param name="n_n"       type="int" value="15"/> 
 <param name="std"       type="double" value="2.0"/> 
-<param name="MK"       type="int" value="30"/> 
+<param name="MK"       type="int" value="30"/>  -->
 
-
-<!--param name="cut_dis"       type="double" value="8.5"/> 
+<!-- params for simulation: -->
+<param name="cut_dis"       type="double" value="8.5"/> 
 <param name="voxel_size"       type="double" value="0.1"/> 
 <param name="n_r"       type="double" value="0.21"/> 
 <param name="n_n"       type="int" value="12"/> 
 <param name="std"       type="double" value="1.0"/> 
 <param name="MK"       type="int" value="10"/>
-<param name="use_current_time"       type="bool" value="false"/-->
+<param name="use_current_time"       type="bool" value="false"/>
+
 </node>
 </launch>

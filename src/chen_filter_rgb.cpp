@@ -85,15 +85,16 @@ cloud_cb (const sensor_msgs::PointCloud2ConstPtr& cloud_msg)
 
 
     // Perform the actual filtering-3
-    if (n_n<0 || n_r<0)
+    if (n_n<0 || n_r<0.0)
       {r_filtered = voxel_filtered;}
     else{
     pcl::RadiusOutlierRemoval<pcl::PointXYZRGB> outrem;
     outrem.setInputCloud(voxel_filtered);
     outrem.setRadiusSearch(n_r);
     outrem.setMinNeighborsInRadius (n_n);
+    // cout<<"before radius filter"<<endl;
     outrem.filter (*r_filtered);}
-
+// cout<<"after radius filter"<<endl;
     if (MK<0 || stdthr<0)
     {sta_filtered = r_filtered;}
     else

@@ -77,6 +77,8 @@ int main(int argc, char **argv)
     Eigen::Vector3d goal;
     bool if_initial = true;
     double ball_pass_time = 0.0;
+    double min_dist2dynobs = 1e6;
+    double tmp_dist,t_gap_ball;
     // cout << "mk1" << endl;
         
     reference.read_param(&nh);
@@ -175,7 +177,22 @@ int main(int argc, char **argv)
       // else{ball_pass_time = 2;}
       // cout<<"ball_pass_time: "<<ball_pass_time<<endl;
     }
-
+    for (int bi = 0; bi < flying.dynobs_pointer->dyn_number; bi++)
+     
+    { t_gap_ball = ros::Time::now().toSec() - flying.dynobs_pointer->ball_time_stamp;
+      tmp_dist = (state.P_E-flying.dynobs_pointer->centers[bi]-t_gap_ball*flying.dynobs_pointer->vels[bi]).norm();
+      if (tmp_dist < min_dist2dynobs)
+      {min_dist2dynobs = tmp_dist;
+      cout<<"min distance from objects to drone:"<<min_dist2dynobs<<endl;}
+      
+    }
+    for (int di = 0; di < flying.dynobs_pointer->ball_number && flying.dynobs_pointer->ballvel[0](0) < -0.4; di++)
+    { t_gap_ball = ros::Time::now().toSec() - flying.dynobs_pointer->ball_time_stamp;
+      tmp_dist = (state.P_E-(flying.dynobs_pointer->ballpos[di] + t_gap_ball*flying.dynobs_pointer->ballvel[di] + 0.5*t_gap_ball*t_gap_ball*flying.dynobs_pointer->ballacc[di])).norm();
+      if (tmp_dist < min_dist2dynobs)
+      {min_dist2dynobs = tmp_dist;
+      cout<<"min distance from ball to drone:"<<min_dist2dynobs<<endl;}
+    }
     if (if_initial || !ifMove)
     {
     ct_pos = state.P_E;

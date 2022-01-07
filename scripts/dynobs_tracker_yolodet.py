@@ -15,6 +15,8 @@ from visualization_msgs.msg import Marker,MarkerArray
 import math,copy
 from message_filters import TimeSynchronizer, Subscriber,ApproximateTimeSynchronizer
 from target_ros_msgs.msg import BoundingBox,BoundingBoxes
+# from dyn_object_tracker.msg import Metadata
+from ahpf_planner.msg import Metadata
 #from cv_bridge import CvBridge, CvBridgeError
 # import cv2
 # from track_test import track
@@ -26,30 +28,51 @@ class convert_pcl():
         self.pcl = [list(point_cloud2.read_points(data, field_names=("x", "y", "z"), skip_nans=True)),list(point_cloud2.read_points(data, field_names=("rgb")))]
         self.pcl_time =data.header.stamp.secs + data.header.stamp.nsecs * 1e-9
         
-    def pos_pcl(self,pcl,imu,odom):
+#     def pos_pcl(self,pcl,imu,odom):
+#         # self.pos=pos.pose
+#         self.pos=odom.pose
+#         self.pos_time = odom.header.stamp.secs + odom.header.stamp.nsecs * 1e-9
+# #        assert isinstance(pcl, PointCloud2)
+#         # global point2,pos,pub
+#         self.pcl = [list(point_cloud2.read_points(pcl, field_names=("x", "y", "z"), skip_nans=True)),list(point_cloud2.read_points(pcl, field_names=("rgb")))]
+#         self.pcl_time =pcl.header.stamp.secs + pcl.header.stamp.nsecs * 1e-9
+#         self.pcl_timestamp = pcl.header.stamp
+#         self.ang_vel = np.array([imu.angular_velocity.x,imu.angular_velocity.y,imu.angular_velocity.z])
+#         self.line_vel = np.array([odom.twist.twist.linear.x,odom.twist.twist.linear.y,odom.twist.twist.linear.z])
+#         self.line_acc =  np.array([imu.linear_acceleration.x,imu.linear_acceleration.y,imu.linear_acceleration.z])
+#         self.vel_time = imu.header.stamp.secs + imu.header.stamp.nsecs * 1e-9
+#         self.acc_var = np.array([imu.linear_acceleration_covariance[0],imu.linear_acceleration_covariance[4],imu.linear_acceleration_covariance[8]])
+#         self.angvel_var = np.array([imu.angular_velocity_covariance[0],imu.angular_velocity_covariance[4],imu.angular_velocity_covariance[8]])
+#         # self.ang_var = np.array([imu.orientation_covariance[0],imu.orientation_covariance[4],imu.orientation_covariance[8]])
+#         # print("alighed",self.vel_time,self.pcl_time)
+#         self.if_align = 1
+    def pos_pcl(self,pcl,imu,odom,metadata):
         # self.pos=pos.pose
-        self.pos=odom.pose
-        self.pos_time = odom.header.stamp.secs + odom.header.stamp.nsecs * 1e-9
-#        assert isinstance(pcl, PointCloud2)
-        # global point2,pos,pub
-        self.pcl = [list(point_cloud2.read_points(pcl, field_names=("x", "y", "z"), skip_nans=True)),list(point_cloud2.read_points(pcl, field_names=("rgb")))]
-        self.pcl_time =pcl.header.stamp.secs + pcl.header.stamp.nsecs * 1e-9
-        self.pcl_timestamp = pcl.header.stamp
-        self.ang_vel = np.array([imu.angular_velocity.x,imu.angular_velocity.y,imu.angular_velocity.z])
-        self.line_vel = np.array([odom.twist.twist.linear.x,odom.twist.twist.linear.y,odom.twist.twist.linear.z])
-        self.line_acc =  np.array([imu.linear_acceleration.x,imu.linear_acceleration.y,imu.linear_acceleration.z])
-        self.vel_time = imu.header.stamp.secs + imu.header.stamp.nsecs * 1e-9
-        self.acc_var = np.array([imu.linear_acceleration_covariance[0],imu.linear_acceleration_covariance[4],imu.linear_acceleration_covariance[8]])
-        self.angvel_var = np.array([imu.angular_velocity_covariance[0],imu.angular_velocity_covariance[4],imu.angular_velocity_covariance[8]])
-        # self.ang_var = np.array([imu.orientation_covariance[0],imu.orientation_covariance[4],imu.orientation_covariance[8]])
-        # print("alighed",self.vel_time,self.pcl_time)
-        self.if_align = 1
-    
-    # def talker(point2):
-    
-    #     # while not rospy.is_shutdown():
-    #     pub.publish(hello_str)
-    #     rate.sleep()      
+        print("power mode:",metadata.json_data[metadata.json_data.find("frame_laser_power_mode")+24])
+        if int(metadata.json_data[metadata.json_data.find("frame_laser_power_mode")+24])>0:
+            self.pos=odom.pose
+            self.pos_time = odom.header.stamp.secs + odom.header.stamp.nsecs * 1e-9
+    #        assert isinstance(pcl, PointCloud2)
+            # global point2,pos,pub
+            if len(pcl.fields) ==3:
+                self.pcl = [list(point_cloud2.read_points(pcl, field_names=("x", "y", "z"), skip_nans=True))[::self.downsp]]
+                self.pcl.append(list(np.zeros(len(self.pcl[0]))))
+            else:
+                self.pcl = [list(point_cloud2.read_points(pcl, field_names=("x", "y", "z"), skip_nans=True))[::self.downsp],list(point_cloud2.read_points(pcl, field_names=("rgb")))[::self.downsp]]
+            self.pcl_time =pcl.header.stamp.secs + pcl.header.stamp.nsecs * 1e-9
+            self.pcl_timestamp = pcl.header.stamp
+            self.ang_vel = np.array([imu.angular_velocity.x,imu.angular_velocity.y,imu.angular_velocity.z])
+            self.line_vel = np.array([odom.twist.twist.linear.x,odom.twist.twist.linear.y,odom.twist.twist.linear.z])
+            self.line_acc =  np.array([imu.linear_acceleration.x,imu.linear_acceleration.y,imu.linear_acceleration.z])
+            self.vel_time = imu.header.stamp.secs + imu.header.stamp.nsecs * 1e-9
+            self.acc_var = np.array([imu.linear_acceleration_covariance[0],imu.linear_acceleration_covariance[4],imu.linear_acceleration_covariance[8]])
+            self.angvel_var = np.array([imu.angular_velocity_covariance[0],imu.angular_velocity_covariance[4],imu.angular_velocity_covariance[8]])
+            self.meta_time = metadata.header.stamp.secs + metadata.header.stamp.nsecs * 1e-9
+            print("meta time - pcl time: ",self.meta_time - self.pcl_time)
+            # self.ang_var = np.array([imu.orientation_covariance[0],imu.orientation_covariance[4],imu.orientation_covariance[8]])
+            # print("alighed",self.vel_time,self.pcl_time)
+            self.if_align = 1  
+      
     def thread_job():
         rospy.spin()
         
@@ -96,10 +119,12 @@ class convert_pcl():
         self.dyn_publisher = rospy.Publisher("/dyn", MarkerArray, queue_size=1)
         self.potential_dyn_publisher = rospy.Publisher("/potential_dyn", MarkerArray, queue_size=1)
         self.target_publisher = rospy.Publisher("/target", MarkerArray, queue_size=1)
-        self.tss = ApproximateTimeSynchronizer([
-                                                Subscriber('/filtered_RadiusOutlierRemoval',PointCloud2),
+        self.tss = ApproximateTimeSynchronizer([Subscriber('/camera/depth/points',PointCloud2),
+                                                #Subscriber('/filtered_RadiusOutlierRemoval',PointCloud2),
                                                 Subscriber('/mavros/imu/data', Imu),
-                                                Subscriber('/vicon_imu_ekf_odom', Odometry)],
+                                                Subscriber('/vicon_imu_ekf_odom', Odometry),
+                                                Subscriber('/camera/infra1/metadata', Metadata)
+                                                ],
                                                # Subscriber('/points_global_all',PointCloud2)
                                                 # Subscriber('/mavros/local_position/velocity',TwistStamped)],
         5,0.03, allow_headerless=True)
@@ -741,7 +766,7 @@ if __name__ == '__main__':
     convert.max_vvn = int(max_obs_speed*dt/v_size)+1
     pub_pcl_size = 500
     floor_ht = 0.1  # floor cut off height
-    downsp = 5  #down sampling ratio, at least 2 if use the neighbor overlapping
+    convert.downsp = 5  #down sampling ratio, at least 2 if use the neighbor overlapping
     pcl_h=[]
     pcl_h_l=[]
     rgb_h=[]
@@ -761,6 +786,9 @@ if __name__ == '__main__':
     time22=0
     time_cap=0
     pre_ct=0
+    time_piv = 0
+    time_preprocess = 0
+    t_dbscan_1,t_dbscan,t_track1 = 0,0,0
     dyn_obs_reset=1
     c_dyn_l,v_dyn_l,d_dyn_l=[],[],[]
     pcl_sta,pcl_sta_h=[],[]
@@ -771,7 +799,7 @@ if __name__ == '__main__':
     targets = []
     kf_dt_list = []
     while not rospy.is_shutdown():
-        starttime1 = time.time()
+        
         t_track = 0
         pcl1=[]
         clu_p1=[]
@@ -823,6 +851,7 @@ if __name__ == '__main__':
         #print((convert.pos is not None),(convert.pcl is not None),convert.ang_vel,convert.if_align)   (convert.depth_img is not None) and 
         if convert.pos is not None and (convert.pcl is not None) and (convert.ang_vel is not None) and convert.if_align: #and len(convert.pcl[0])>n_p  and convert.if_align == 1
             convert.if_align = 0
+            starttime1 = time.time()
             px,py,pz,r,p,y=convert.parse_local_position(convert.pos)
             convert.ori_wd.append(np.array([r,p,y]))
             if len(convert.ori_wd)>convert.wd_len:
@@ -833,9 +862,10 @@ if __name__ == '__main__':
             print("var_ori:",var_ori,convert.ang_vel)
             # convert.pcl_pt=convert.pcl[0]
             # convert.pcl_rgb=convert.pcl[1]
+            
             pcl_rgb=np.array(convert.pcl[1])
             pcl=np.array(convert.pcl[0])
-            
+
             pcl_time = convert.pcl_time
             pos_time = convert.pos_time
             vel_time = convert.vel_time
@@ -855,7 +885,7 @@ if __name__ == '__main__':
             
 
 
-            pcl_c=pcl.copy()
+            pcl_c=np.zeros([len(pcl),3])
 #        
             if np.linalg.norm(convert.ang_vel[0:3]) < 1.5*math.pi and len(pcl)>0:
                 if local_pos is 0 or ((local_pos is not 0) and np.linalg.norm(local_pos-np.array([px,py,pz]))<0.3):
@@ -949,10 +979,10 @@ if __name__ == '__main__':
                     pos_c2=pos_h[-1]
                     pos_c1=pos_h[j]
                 else:
-                    pcl_c2= np.r_[pcl_h[-1],pcl_h[-2]][::downsp]  #temporal overlap and filtering
-                    pcl_c1= np.r_[pcl_h[j],pcl_h[j-1]][::downsp]
-                    rgb_c2= np.r_[rgb_h[-1],rgb_h[-2]][::downsp]
-                    rgb_c1= np.r_[rgb_h[j],rgb_h[j-1]][::downsp]
+                    pcl_c2= np.r_[pcl_h[-1],pcl_h[-2]]  #temporal overlap and filtering
+                    pcl_c1= np.r_[pcl_h[j],pcl_h[j-1]]
+                    rgb_c2= np.r_[rgb_h[-1],rgb_h[-2]]
+                    rgb_c1= np.r_[rgb_h[j],rgb_h[j-1]]
                     t_c2 = (t_pcl[-1] + t_pcl[-2])/2
                     t_c1 = (t_pcl[j] + t_pcl[j-1])/2
                     pos_c2 = (pos_h[-1] + pos_h[-2])/2
@@ -967,11 +997,11 @@ if __name__ == '__main__':
                 t_pcl=t_pcl[j::]
                 pos_h=pos_h[j::]
 
-    
+            t_get_pcl = time.time()
             if len(pcl_c2) and len(pcl_c1):# and len(index_c1)==len(pcl_c1) and len(index_c2)==len(pcl_c2) and index_c1.any() and index_c2.any():
-
+                t_dbscan = time.time()
                 db2 = skc.DBSCAN(eps=r_p, min_samples=n_p).fit(pcl_c2)
-
+               
                 labels2 = db2.labels_
 
                 n_clusters2_ = len(set(labels2)) - (1 if -1 in labels2 else 0)
@@ -986,7 +1016,8 @@ if __name__ == '__main__':
                     
                     rgb_p2.append(rgb_cluster)
                     clts_center.append(np.mean(one_cluster,axis=0))
-
+               # t_dbscan_1 = time.time()
+                
                 # pcl_clust = copy.copy(clu_p2)
                 clu_c1=np.array(clu_c1)
                 clu_c2=np.array(clu_c2)
@@ -1042,7 +1073,10 @@ if __name__ == '__main__':
                         print("found target!",target)
                         targets.append(target)
                         matched.append(False)
+                time_piv = 0
+                time_preprocess = 0
                 for i in range(n_clusters2_):
+                    t_prep = time.time()
                     if (i in remove_index) or (len(clu_p2[i])<n_p*2):
                         # inv_flag = abs(inv_flag-1)
                        
@@ -1133,8 +1167,10 @@ if __name__ == '__main__':
                         index1 = index1.astype(int)
                         bb_space1[index1[:,0],index1[:,1],index1[:,2],:] = np.clip(np.tile((center_r/v_size)/np.linalg.norm(index1-np.mean(index1,axis=0),axis=1),(ft_vet_len,1)).T,0.6,10)*np.array([wt_pnum*num1,colors1*wt_color]).T
                         # bb_lst1.append(bb_space1)
-                        
+                        t_piv = time.time()
+                        time_preprocess += (t_piv - t_prep)
                         disp_i = -convert.get_dplm(bb_space, bb_space1, pos_obs2_bb,clts_center[i],c_dyn_l,v_dyn_l,(t_c2-t_c1),v_size) * v_size
+                        time_piv += time.time() - t_piv
                         v_i = disp_i/(t_c2-t_c1)
                         if len(v_i)<3:
                             v_i = v_i[0]
@@ -1207,6 +1243,7 @@ if __name__ == '__main__':
             observe_tk, kf_tk = [],[]
            
             if_initial = 0
+            t_kfc = time.time()
             if len(lastkf_c) or len(c_dynkf):
 
                 if last_kftime and (time.time()-last_kftime < 0.5):
@@ -1349,6 +1386,7 @@ if __name__ == '__main__':
                 dyn_obs_reset=0
             # if len(c_dyn_l)>0:
             print('moving obj!!!!!!!!:',c_dyn_l,v_dyn_l,d_dyn_l,if_track)#,'pcl1:',pcl1)
+            t_pub = time.time()
             c_dyn1=np.array(c_dyn_l)
             v_dyn1=np.array(v_dyn_l)
             
@@ -1358,11 +1396,12 @@ if __name__ == '__main__':
             dyn_v11=[]
 
             pcl1 = []
+
             if len(c_dyn1)>0:
                 pcl1 = np.array([[1,2,3]])
                 for kk in range(len(clts_center)):
                     if(np.linalg.norm(c_dyn1-clts_center[kk],axis = 1) < 0.2).any():
-                        pcl1 = np.r_[pcl1,np.array(clu_p2[kk][::2])]
+                        # pcl1 = np.r_[pcl1,np.array(clu_p2[kk][::2])]
                         continue
                     pcl1 = np.r_[pcl1,np.array(clu_p2[kk])]
                 pcl1 = pcl1[1::]
@@ -1412,7 +1451,9 @@ if __name__ == '__main__':
 
             protime=time.time()-starttime1
           
-            print('protime,t_track:',protime,t_track)
+            print('protime,t_track,time_publish,t_kf:',protime,t_track,time.time()-t_pub,t_pub-t_kfc)
+            print("time cost PIV: ",time_piv, "time preprocess: ",time_preprocess,"t_kfc-t_track1:",t_kfc-t_track1, "time get pcl:", t_get_pcl-starttime1)
+            print("time cost DBSCAN:",t_track1-t_dbscan,len(pcl_c2),"time add up:",t_track1-t_dbscan+t_get_pcl-starttime1+time_preprocess+time_piv+time.time()-t_pub+t_pub-t_kfc)
             if point22 is not None:
              
                 convert.octo_pub.publish(point22)

@@ -191,7 +191,6 @@ src/call_states/ros_communicate.cpp
 
 )
 
-
 set(RFR 
 src/planner_fast.cpp
 src/path_searching/src/kinodynamic_astar.cpp
