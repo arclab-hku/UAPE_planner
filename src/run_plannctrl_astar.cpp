@@ -65,14 +65,27 @@ int main(int argc, char **argv)
     TrajectoryGenerator_fast reference;
     Eigen::Vector3d end_state = Eigen::Vector3d::Zero(3);
     vector<double> goalp;
-    double dis_goal;
+    Matrix<double, 3, 5> camera_vertex,camera_vertex_b;
+    double d2r = 3.14159265/180;
+    double cam_depth = 10.0;
+    double h_fov = 87; // in degree
+    double v_fov = 58;
+    camera_vertex_b.col(0) << 0,0,0;
+    camera_vertex_b.col(1) << cam_depth,tan(h_fov/2*d2r)*cam_depth,tan(v_fov/2*d2r)*cam_depth;
+    camera_vertex_b.col(2) << cam_depth,-tan(h_fov/2*d2r)*cam_depth,tan(v_fov/2*d2r)*cam_depth;
+    camera_vertex_b.col(3) << cam_depth,-tan(h_fov/2*d2r)*cam_depth,-tan(v_fov/2*d2r)*cam_depth;
+    camera_vertex_b.col(4) << cam_depth,tan(h_fov/2*d2r)*cam_depth,-tan(v_fov/2*d2r)*cam_depth;
+    double dis_goal,dis_goal_ini;
     double sfck_t;
     bool ifMove;
     nh.getParam("goal", goalp);
-    nh.getParam("search/horizon", dis_goal);
+    nh.getParam("search/horizon", dis_goal_ini);
     nh.getParam("sfck_t", sfck_t);
     nh.getParam("ifMove", ifMove);
-    dis_goal = dis_goal-0.5;
+    nh.getParam("cam_depth", cam_depth);
+    nh.getParam("h_fov", h_fov);
+    nh.getParam("v_fov", v_fov);
+    dis_goal = dis_goal_ini-0.5;
     Eigen::Vector3d g_goal = {goalp[0],goalp[1],goalp[2]};
     Eigen::Vector3d goal;
     bool if_initial = true;
@@ -102,12 +115,13 @@ int main(int argc, char **argv)
     ct_pos = state.P_E;
     ct_vel = state.V_E;
     ct_acc = state.A_E;
-    cout << "reset env!\n" << endl;
+    camera_vertex = (state.Rota*camera_vertex_b).array().colwise() + ct_pos.array();
+    // cout << "reset env!\n" << endl;
     kino_path_finder_.reset(new KinodynamicAstar);
     kino_path_finder_->setParam(nh);
-    cout << "set params !\n" << flying.obs_pointer << endl;
-    kino_path_finder_->setEnvironment(flying.obs_pointer,flying.dynobs_pointer);
-    cout << "set obs !\n" << endl;
+    // cout << "set params !\n" << flying.obs_pointer << endl;
+    kino_path_finder_->setEnvironment(flying.obs_pointer,flying.dynobs_pointer,camera_vertex);
+    // cout << "set obs !\n" << endl;
     kino_path_finder_->init();
     
     if ((g_goal-ct_pos).norm()>dis_goal)
@@ -117,6 +131,12 @@ int main(int argc, char **argv)
     cout << "begin search!\n" << goal << endl;
     int status = kino_path_finder_->search(ct_pos, ct_vel, ct_acc, goal, end_state, true);
     last_path_t = ros::Time::now().toSec();
+    while (status == KinodynamicAstar::GOAL_OCC)
+    {
+    dis_goal -= 0.5;
+    goal = ct_pos + (g_goal-ct_pos)/(g_goal-ct_pos).norm()*dis_goal;
+    kino_path_finder_->reset();
+    status = kino_path_finder_->search(ct_pos, ct_vel, ct_acc, goal, end_state, false);}
     if (status == KinodynamicAstar::NO_PATH) {
     cout << "[kino replan]: kinodynamic search fail!" << endl;
 
@@ -131,7 +151,6 @@ int main(int argc, char **argv)
     } else {
       cout << "[kino replan]: retry search success." << endl;
     }}
-
     vector<Eigen::Vector3d> waypoints, start_end_derivatives;
     kino_path_finder_->getSamples(0.3, waypoints,start_end_derivatives);
     waypoints_m = Map<MatrixXd>(waypoints[0].data(),3,waypoints.size());
@@ -141,6 +160,7 @@ int main(int argc, char **argv)
     
     while (nh.ok())
     {
+     dis_goal = dis_goal_ini-0.5;
       if ((g_goal-ct_pos).norm()>dis_goal)
     {goal = ct_pos + (g_goal-ct_pos)/(g_goal-ct_pos).norm()*dis_goal;}
     else{goal = g_goal;}
@@ -179,11 +199,11 @@ int main(int argc, char **argv)
     }
     for (int bi = 0; bi < flying.dynobs_pointer->dyn_number; bi++)
      
-    { t_gap_ball = ros::Time::now().toSec() - flying.dynobs_pointer->ball_time_stamp;
+    { t_gap_ball = ros::Time::now().toSec() - flying.dynobs_pointer->time_stamp;
       tmp_dist = (state.P_E-flying.dynobs_pointer->centers[bi]-t_gap_ball*flying.dynobs_pointer->vels[bi]).norm();
       if (tmp_dist < min_dist2dynobs)
       {min_dist2dynobs = tmp_dist;
-      cout<<"min distance from objects to drone:"<<min_dist2dynobs<<endl;}
+      cout<<"min distance from objects to drone:"<<min_dist2dynobs<<endl<<state.P_E<<endl<<flying.dynobs_pointer->centers[bi]+t_gap_ball*flying.dynobs_pointer->vels[bi];}
       
     }
     for (int di = 0; di < flying.dynobs_pointer->ball_number && flying.dynobs_pointer->ballvel[0](0) < -0.4; di++)
@@ -203,19 +223,25 @@ int main(int argc, char **argv)
     ct_vel = v_d;
     ct_acc = a_d;}
     if_initial = false;
+    camera_vertex = (state.Rota*camera_vertex_b).array().colwise() + state.P_E.array();
     // ct_acc = Vector3d::Zero(3);
     //ros::Time::now().toSec() - last_path_t > 0.1 && 
     if ((goal-ct_pos).norm()>1.0 && flying.obs_pointer->size()>0)
     {
     chrono::high_resolution_clock::time_point tic = chrono::high_resolution_clock::now();
-    cout << "The obs pointer:\n" << flying.obs_pointer << "---pcl size: "<< flying.obs_pointer->size()<< endl;
+    // cout << "The obs pointer:\n" << flying.obs_pointer << "---pcl size: "<< flying.obs_pointer->size()<< endl;
     
-    kino_path_finder_->setEnvironment(flying.obs_pointer,flying.dynobs_pointer);
+    kino_path_finder_->setEnvironment(flying.obs_pointer,flying.dynobs_pointer,camera_vertex);
     if (!kino_path_finder_->checkOldPath(waypoints) || ros::Time::now().toSec() - last_path_t > sfck_t)
     {
     kino_path_finder_->reset();
     status = kino_path_finder_->search(ct_pos, ct_vel, ct_acc, goal, end_state, true);
-    
+    while (status == KinodynamicAstar::GOAL_OCC)
+    {
+    dis_goal -= 0.5;
+    goal = ct_pos + (g_goal-ct_pos)/(g_goal-ct_pos).norm()*dis_goal;
+    kino_path_finder_->reset();
+    status = kino_path_finder_->search(ct_pos, ct_vel, ct_acc, goal, end_state, false);}
     if (status == KinodynamicAstar::NO_PATH) {
     cout << "[kino replan]: kinodynamic search fail!" << endl;
 
@@ -243,8 +269,8 @@ int main(int argc, char **argv)
     {waypoints.clear();
      waypoints.emplace_back(ct_pos);
      waypoints.emplace_back(goal);}
-    cout << "Goal:\n" << goal << endl <<g_goal<<endl;
-    cout << "the updated waypoints:" << waypoints[0] << endl << waypoints.back()<<endl;
+    // cout << "Goal:\n" << goal << endl <<g_goal<<endl;
+    // cout << "the updated waypoints:" << waypoints[0] << endl << waypoints.back()<<endl;
     MatrixXd waypoints_m = Map<MatrixXd>(waypoints[0].data(),3,waypoints.size());
     bool if_safe = reference.check_polyH_safe(traj_last_t, waypoints_m,ct_pos, flying.obs_pointer, flying.dynobs_pointer,ros::Time::now().toSec());
     
@@ -325,6 +351,7 @@ int main(int argc, char **argv)
         flying.pub_traj (sp_pos, sp_vel,sp_acc);
         flying.pub_path (waypoints);
         flying.pub_polyh (reference.decompPolys);
+        flying.pub_fovshape (camera_vertex);
         if (flying.dynobs_pointer->ball_number >0)
         {
          flying.pub_ballstates();

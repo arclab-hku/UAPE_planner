@@ -29,6 +29,7 @@ RosClass::RosClass(ros::NodeHandle* nodehandle, int FREQ):
     polyh_pub_ = nh_.advertise<decomp_ros_msgs::PolyhedronArray>("/polyhedra", 1);
     poscmd_pub_ = nh_.advertise<quadrotor_msgs::PositionCommand>("/position_cmd", 10);
     ball_vispub_ = nh_.advertise<visualization_msgs::MarkerArray>("/ball_vis_states", 10);
+    cam_vispub_ = nh_.advertise<visualization_msgs::Marker>("/camera_fov", 10);
     // fcu modes
     arming_client_ = nh_.serviceClient<mavros_msgs::CommandBool>("/mavros/cmd/arming");
     land_client_ = nh_.serviceClient<mavros_msgs::CommandTOL>("/mavros/cmd/land");
@@ -105,7 +106,7 @@ States RosClass::launch(void)
         rate.sleep();
     }
 
-    get_state_();
+    get_state();
 
     return state;
 }
@@ -217,7 +218,7 @@ States RosClass::step(double double_n, Vector3d pos,Vector3d vel,Vector3d acc, s
     ros::spinOnce();
    // rate.sleep();
 
-    get_state_();
+    get_state();
 
     crashed_();
 
@@ -321,41 +322,82 @@ void RosClass::land(Vector3d endp)
     printf("Landed.\n");
 }
 
-States RosClass::get_state_(void)
+// States RosClass::get_state_(void)
+// {
+//     // raw signals
+//     state.P_E = listener_.P_E;
+//     state.V_E = listener_.V_E;
+//     //// attitude
+//     state.Quat = listener_.Quat;
+//     state.Rota = listener_.Rota;            //state.Quat.normalized().toRotationMatrix();    //from body to earth
+//     state.Rota_EB = state.Rota.transpose(); //from earth to body
+//     state.Euler = Quaternion2Euler(state.Quat);
+//     //Euler = Rota.eulerAngles(0, 1, 2);  // roll pitch yaw
+//     //// imu
+//     state.Rate_Braw = listener_.Rate_B;
+//     state.A_Eraw = listener_.A_E;
+
+//     // first-order filter for ctrl
+//     //// accel
+//     state.A_E = state.A_Eraw;
+//     // state.A_E = filter_accel.filter(state.A_Eraw);
+//     //// rate
+//     state.Rate_B = state.Rate_Braw;
+//     // state.Rate_B = filter_rate.filter(state.Rate_Braw);
+
+//     state.Rate_E = state.Rota * state.Rate_Braw;
+//     cd_c = listener_.cd_c;
+//     cd_r = listener_.cd_r;
+//     waypoints = listener_.waypoints;
+//     pcl_update = listener_.pcl_update;
+//     waypoint_update = listener_.waypoint_update;
+//     obs_pointer = &listener_.obs;
+//     dynobs_pointer = &listener_.dynobs;
+//     pcl_pointer = &listener_.cloud;
+//     trigger = listener_.trigger;
+// //     cout << "state:" << state.P_E << state.Euler << listener_.flight_state <<endl;
+//     return state;
+// }
+void RosClass::pub_fovshape(Eigen::Matrix<double, 3, 5>& camera_vertex)
 {
-    // raw signals
-    state.P_E = listener_.P_E;
-    state.V_E = listener_.V_E;
-    //// attitude
-    state.Quat = listener_.Quat;
-    state.Rota = listener_.Rota;            //state.Quat.normalized().toRotationMatrix();    //from body to earth
-    state.Rota_EB = state.Rota.transpose(); //from earth to body
-    state.Euler = Quaternion2Euler(state.Quat);
-    //Euler = Rota.eulerAngles(0, 1, 2);  // roll pitch yaw
-    //// imu
-    state.Rate_Braw = listener_.Rate_B;
-    state.A_Eraw = listener_.A_E;
-
-    // first-order filter for ctrl
-    //// accel
-    state.A_E = state.A_Eraw;
-    // state.A_E = filter_accel.filter(state.A_Eraw);
-    //// rate
-    state.Rate_B = state.Rate_Braw;
-    // state.Rate_B = filter_rate.filter(state.Rate_Braw);
-
-    state.Rate_E = state.Rota * state.Rate_Braw;
-    cd_c = listener_.cd_c;
-    cd_r = listener_.cd_r;
-    waypoints = listener_.waypoints;
-    pcl_update = listener_.pcl_update;
-    waypoint_update = listener_.waypoint_update;
-    obs_pointer = &listener_.obs;
-    dynobs_pointer = &listener_.dynobs;
-    pcl_pointer = &listener_.cloud;
-    trigger = listener_.trigger;
-//     cout << "state:" << state.P_E << state.Euler << listener_.flight_state <<endl;
-    return state;
+        visualization_msgs::Marker fov;
+        // uav_pos=pose[0:3]
+        fov.type = fov.LINE_LIST;
+        fov.header.frame_id = "map";
+        fov.header.stamp = ros::Time::now();
+       
+        fov.color.a = 1.0;
+        fov.color.r = 1.0;
+        fov.color.g = 0.2;
+        fov.scale.x = 0.03;
+        geometry_msgs::Point p3;
+        p3.x = camera_vertex.col(0)(0);
+        p3.y = camera_vertex.col(0)(1);
+        p3.z = camera_vertex.col(0)(2);
+        // p3.x,p3.y,p3.z = uav_pos
+        // dots=np.matmul(self.b2e,self.dots.T).T+uav_pos
+        for (int i =1;i<5;i++)
+            {geometry_msgs::Point p1,p2;
+        p1.x = camera_vertex.col(i)(0);
+        p1.y = camera_vertex.col(i)(1);
+        p1.z = camera_vertex.col(i)(2);
+            if (i < 4)
+                {        
+        p2.x = camera_vertex.col(i+1)(0);
+        p2.y = camera_vertex.col(i+1)(1);
+        p2.z = camera_vertex.col(i+1)(2);}
+            else
+                {        
+        p2.x = camera_vertex.col(1)(0);
+        p2.y = camera_vertex.col(1)(1);
+        p2.z = camera_vertex.col(1)(2);}
+            fov.points.emplace_back(p1);
+            fov.points.emplace_back(p2);
+            fov.points.emplace_back(p3);
+            fov.points.emplace_back(p1);}
+        fov.id=6;
+        fov.pose.orientation.w = 1.0;
+        cam_vispub_.publish(fov);
 }
 void RosClass::pub_ballstates()
 {

@@ -201,11 +201,13 @@ struct Obs
   size_t nearest_index = 0;
   double time_offset;
   int quiry_num_;
+  Eigen::Matrix<double, 3, 5> camera_vertex_;
+  double v_camera_fov = 0;
  public:
   KinodynamicAstar(){};
   ~KinodynamicAstar();
    
-  enum { REACH_HORIZON = 1, REACH_END = 2, NO_PATH = 3, NEAR_END = 4 };
+  enum { REACH_HORIZON = 1, REACH_END = 2, NO_PATH = 3, NEAR_END = 4 , GOAL_OCC = 5};
 
   /* main API */
   void setParam(ros::NodeHandle& nh);
@@ -217,7 +219,7 @@ struct Obs
              Eigen::Vector3d end_vel, bool init, bool dynamic = false,
              double time_start = -1.0);
 
-  void setEnvironment(vec_Vec3f* cloud, dynobs_tmp* dynamic_obs);
+  void setEnvironment(vec_Vec3f* cloud, dynobs_tmp* dynamic_obs, Eigen::Matrix<double, 3, 5>& camera_vertex);
   std::vector<Eigen::Vector3d> getKinoTraj(double delta_t);
 
   void getSamples(double ts, vector<Eigen::Vector3d>& point_set, vector<Eigen::Vector3d>& start_end_derivatives);

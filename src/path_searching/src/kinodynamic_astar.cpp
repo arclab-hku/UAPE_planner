@@ -48,7 +48,7 @@ int KinodynamicAstar::search(Eigen::Vector3d start_pt, Eigen::Vector3d start_v, 
   goal_ = end_pt;
   if(!checkSafety (goal_, -1.0))
   { std::cout << "goal is occupied!" << std::endl;
-    return NO_PATH;}
+    return GOAL_OCC;}
   // cout<<"mark"<<endl;
   PathNodePtr cur_node = path_node_pool_[0];
   cur_node->parent = NULL;
@@ -403,9 +403,15 @@ double KinodynamicAstar::estimateHeuristic(Eigen::VectorXd x1, Eigen::VectorXd x
       t_d = t;
     }
   }
-
+  
   optimal_time = t_d;
-
+  if ((x1.head(3) - camera_vertex_.col(0)).dot((camera_vertex_.col(0) - camera_vertex_.col(1)).cross(camera_vertex_.col(0) - camera_vertex_.col(2)))<0
+  ||(x1.head(3) - camera_vertex_.col(0)).dot((camera_vertex_.col(0) - camera_vertex_.col(2)).cross(camera_vertex_.col(0) - camera_vertex_.col(3)))<0
+  ||(x1.head(3) - camera_vertex_.col(0)).dot((camera_vertex_.col(0) - camera_vertex_.col(3)).cross(camera_vertex_.col(0) - camera_vertex_.col(4)))<0
+  ||(x1.head(3) - camera_vertex_.col(0)).dot((camera_vertex_.col(0) - camera_vertex_.col(4)).cross(camera_vertex_.col(0) - camera_vertex_.col(1)))<0
+  ||(x1.head(3) - camera_vertex_.col(1)).dot((camera_vertex_.col(1) - camera_vertex_.col(4)).cross(camera_vertex_.col(1) - camera_vertex_.col(2)))<0)
+  {cost *= 5;
+   cout << "sample out of FOV"<<endl;}
   return 1.0 * (1 + tie_breaker_) * cost;
 }
 
@@ -581,20 +587,20 @@ void KinodynamicAstar::init()
 }
 
 // template <typename num_t>
-void KinodynamicAstar::setEnvironment(vec_Vec3f* cloud, dynobs_tmp* dynamic_obs)
+void KinodynamicAstar::setEnvironment(vec_Vec3f* cloud, dynobs_tmp* dynamic_obs, Eigen::Matrix<double, 3, 5>& camera_vertex)
 {
   // this->st_cloud_ = cloud；
   this->dynobs_pointer_ = dynamic_obs;
   pcPtr_ = std::make_shared<Obs>();
 	 // The adaptor
-  cout << "get dyn"<<endl;
+  // cout << "get dyn"<<endl;
   pcPtr_->pts = cloud;
-  cout << "get cloud"<<endl;
+  // cout << "get cloud"<<endl;
   kdPtr_ = std::make_shared<my_kd_tree_t>(3, *pcPtr_);
-  cout << "build index"<<endl;
+  // cout << "build index"<<endl;
   kdPtr_->buildIndex();
 	// construct a kd-tree index:
-
+  camera_vertex_ = camera_vertex;
   // my_kd_tree_t index(3 /*dim*/, pc2kd_, nanoflann::KDTreeSingleIndexAdaptorParams(20 /* max leaf */));
 	// index.buildIndex();
   time_offset = ros::Time::now().toSec() - dynamic_obs->time_stamp;

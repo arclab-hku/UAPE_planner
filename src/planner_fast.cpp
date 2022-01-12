@@ -25,7 +25,7 @@ void TrajectoryGenerator_fast::replan_traj(double MAXVEL,Vector3d &start,Vector3
       {
         wPs.emplace_back(waypoints.col(i).transpose());
       }}
-   cout << "received obs points:" << obs_pointer->size()<<endl << obs_pointer <<endl;
+  //  cout << "received obs points:" << obs_pointer->size()<<endl << obs_pointer <<endl;
 
    gen_polyhedrons(obs_pointer);}
    Matrix3d iniState,finState; 
@@ -145,7 +145,7 @@ total_t = traj.getTotalDuration();
   pt[1] = pos(1);
   pt[2] = pos(2);
   if (!dyn_safe_check(pos,j+start_t))
-  {cout<< "dyn check fail!  "<<dynobs_pointer->ballvel[0]<<endl;
+  {cout<< "dyn check fail!  "<<dynobs_pointer->dyn_number<<endl;  //dynobs_pointer->ballvel[0]<<endl
     return false;}
   if (old_plhd_safe)
   {continue;}
@@ -177,10 +177,13 @@ inline bool TrajectoryGenerator_fast::dyn_safe_check(Vector3d pt, double check_t
   for (int j =0; j<dynobs_pointer->dyn_number; j++)
   {
     ct_center = dynobs_pointer->centers[j] + t_base*dynobs_pointer->vels[j];
+    // cout << "ct_center:\n"<<ct_center <<endl<<"pt: \n"<<pt<<endl<<"obs size: \n"<<dynobs_pointer->obs_sizes[j]*0.5<<"\ntime gap: "<<t_base<<"\n pos gap:"<<(ct_center - pt).cwiseAbs()<<endl<<(((ct_center - pt).cwiseAbs() - dynobs_pointer->obs_sizes[j]*0.5).array()<0)<<endl;
     if ((((ct_center - pt).cwiseAbs() - dynobs_pointer->obs_sizes[j]*0.5).array()<0).all())
-    {return false;}
+    { 
+      // cout<<"1111"<<endl;
+      return false;}
   }}
-  else if (dynobs_pointer->ball_number>0)
+  if (dynobs_pointer->ball_number>0)
   {
   t_base = check_t - dynobs_pointer->ball_time_stamp;
   for (int j =0; j<dynobs_pointer->ball_number; j++)
@@ -197,7 +200,7 @@ void TrajectoryGenerator_fast::Traj_opt(const MatrixXd &iniState, const MatrixXd
     chrono::high_resolution_clock::time_point tic = chrono::high_resolution_clock::now();
     SE3GCOPTER nonlinOpt;
     // Trajectory traj;
-           cout << "received dynamic obs number:" << dynobs_pointer->dyn_number << endl << dynobs_pointer<<endl<<"dyn_timestamp:"<<dynobs_pointer->time_stamp<<endl<<plan_t<<endl;
+          //  cout << "received dynamic obs number:" << dynobs_pointer->dyn_number << endl << dynobs_pointer<<endl<<"dyn_timestamp:"<<dynobs_pointer->time_stamp<<endl<<plan_t<<endl;
     ROS_INFO("Begin to optimize the traj~");
     cout << "final state in use:" << endl << finState.col(0) << endl;
     if (!nonlinOpt.setup(config.rho, config.totalT, iniState, finState, hPolys, INFINITY,
@@ -245,7 +248,7 @@ void TrajectoryGenerator_fast::gen_polyhedrons(vec_Vec3f *obs_pointer)
         decompPolys.push_back(poly);
        // ellips.push_back(ellip);
         //find the nearest one to the boundry of poly.
-        cout << "mk22 " << i<<endl<<wPs.size()<<endl;
+        // cout << "mk22 " << i<<endl<<wPs.size()<<endl;
         if (i+2 < wPs.size())
         {
         uint j;

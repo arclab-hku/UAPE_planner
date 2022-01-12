@@ -164,7 +164,7 @@ void Listener::obsCb(const sensor_msgs::PointCloud2::ConstPtr & msg)
     obs.clear();
     // obs.resize(cloud.points.size());
     dynobs.time_stamp = cloud.header.stamp.sec + cloud.header.stamp.nsec * 1e-9;
-    if (cloud.points.back().y + cloud.points.back().z > 1e-5)
+    if (abs(cloud.points.back().y) + abs(cloud.points.back().z) > 1e-5)
     {dynobs.dyn_number = 0;}
     else
     {
@@ -194,9 +194,9 @@ void Listener::obsCb(const sensor_msgs::PointCloud2::ConstPtr & msg)
     dynobs.vels[i-obs.size()-dynobs.dyn_number](1) = cloud.points[i].y;
     dynobs.vels[i-obs.size()-dynobs.dyn_number](2) = cloud.points[i].z;}
     else
-{   dynobs.obs_sizes[i-obs.size()-2*dynobs.dyn_number](0) = cloud.points[i].x;
-    dynobs.obs_sizes[i-obs.size()-2*dynobs.dyn_number](1) = cloud.points[i].y;
-    dynobs.obs_sizes[i-obs.size()-2*dynobs.dyn_number](2) = cloud.points[i].z;}
+{   dynobs.obs_sizes[i-obs.size()-2*dynobs.dyn_number](0) = cloud.points[i].x+0.4;
+    dynobs.obs_sizes[i-obs.size()-2*dynobs.dyn_number](1) = cloud.points[i].y+0.4;
+    dynobs.obs_sizes[i-obs.size()-2*dynobs.dyn_number](2) = cloud.points[i].z+0.4;}
 
     }
   

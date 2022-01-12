@@ -482,7 +482,7 @@ private:
                 double dist2_err3 = dist2_err2 * dist2_err;
 
                 pena += wei_dyn * dist2_err3 * omg * step;
-
+                pena_ball+= wei_dyn * dist2_err3 * omg * step;
                 Eigen::Vector3d dJ_dP = wei_dyn * 3 * dist2_err2 * (-2) * Eigen::Vector3d(inv_b2 * dist_vec(0), inv_b2 * dist_vec(1), inv_a2 * dist_vec(2));  //gradient!
                 gdC.block<6, 3>(i * 6, 0) += beta0 * dJ_dP.transpose()* omg * step;
                 gdT(i) += omg * (wei_dyn * dist2_err3 / innerLoop + step * dJ_dP.dot(vel - dynobs_pointer->vels[m])*j/innerLoop);
@@ -554,7 +554,7 @@ private:
         // double endtime=(double)(end_time-start_time)/CLOCKS_PER_SEC;
         // compute_time+=endtime;
         cost += pena;
-        cout << "accumulate pena: " << cost << " pena: "<<pena<< " pena_ball: "<<pena_ball<<endl;
+        cout << "accumulate pena: " << cost << " pena: "<<pena<< " pena_dynobjects: "<<pena_ball<<endl;
         return;
     }
 
@@ -1271,7 +1271,7 @@ public:
         fState = finState;
         plan_t = plan_start_t;
         dynobs_pointer = dyn_pointer;
-        cout << dynobs_pointer << endl;
+        // cout << dynobs_pointer << endl;
         cfgHs = cfgPolyHs;
         coarseN = cfgHs.size();
         for (int i = 0; i < coarseN; i++)
@@ -1413,7 +1413,7 @@ public:
         lbfgs_params.delta = relCostTol;
         // cout << "mk2" <<endl;
         cout << dynobs_pointer << endl;
-        cout << "gcopter dynamic obs number:" << dynobs_pointer->dyn_number <<endl;
+        cout << "gcopter dynamic obs number:" << dynobs_pointer->dyn_number <<"///"<<dynobs_pointer->ball_number<<endl;
         lbfgs::lbfgs_optimize(dimFreeT + dimFreeP,
                               x,
                               &minObjectivePenalty,

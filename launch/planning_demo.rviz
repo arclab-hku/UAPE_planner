@@ -66,7 +66,7 @@ Visualization Manager:
         Y: 0
         Z: 0
       Plane: XY
-      Plane Cell Count: 20
+      Plane Cell Count: 40
       Reference Frame: <Fixed Frame>
       Value: true
     - Alpha: 1
@@ -97,7 +97,7 @@ Visualization Manager:
       Marker Topic: /dyn
       Name: MarkerArray
       Namespaces:
-        {}
+        "": true
       Queue Size: 100
       Value: true
     - Alpha: 1
@@ -181,8 +181,8 @@ Visualization Manager:
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
-        Max Value: 2.237332582473755
-        Min Value: 0.3026815950870514
+        Max Value: 4.2040228843688965
+        Min Value: 0.10161492973566055
         Value: true
       Axis: Z
       Channel Name: intensity
@@ -337,7 +337,7 @@ Visualization Manager:
       Marker Topic: /cluster_center
       Name: Marker
       Namespaces:
-        {}
+        "": true
       Queue Size: 100
       Value: true
     - Alpha: 1
@@ -618,25 +618,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 21.375669479370117
+      Distance: 22.667320251464844
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -0.0631939023733139
-        Y: -0.5162397027015686
-        Z: 1.3978829383850098
+        X: 4.131680965423584
+        Y: 1.1526941061019897
+        Z: 1.9484524726867676
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.4052037298679352
+      Pitch: 1.064796805381775
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 3.1031429767608643
+      Yaw: 3.0431363582611084
     Saved: ~
 Window Geometry:
   Displays:
