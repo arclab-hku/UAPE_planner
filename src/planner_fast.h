@@ -23,7 +23,7 @@ struct Config
     // Params
     double scaleSI;
     double mapHeight;
-    Vector3d polyhedronBox;
+    Vector3d polyhedronBox,global_min,global_size;
     double rho;
     double totalT;
     int qdIntervals;
@@ -45,7 +45,7 @@ struct Config
     Vector4d ellipsoidVizRGBA;
     inline void loadParameters(const ros::NodeHandle &nh_priv)
     // {       cout << "mk3" << endl;
-        {vector<double> vecPolyhedronBox, vecPenaltyPVTB, vecTrajVizRGB, vecEllipsoidVizRGBA;
+        {vector<double> vecPolyhedronBox, vecPenaltyPVTB, vecTrajVizRGB, vecEllipsoidVizRGBA,vecGlobal_min,vecGlobal_size;;
        // string packagePath = ros::package::getPath("ahpf_planner");
        // packagePath += packagePath.back() == '/' ? "" : "/";
        // string packageUrl = "package://plan_manage/";
@@ -56,7 +56,10 @@ struct Config
         nh_priv.getParam("PolyhedronBox", vecPolyhedronBox);
         // cout << "mk4" << endl<< scaleSI << endl << vecPolyhedronBox[2] << endl << vecPolyhedronBox[0] <<endl;
         polyhedronBox << vecPolyhedronBox[0], vecPolyhedronBox[1], vecPolyhedronBox[2];
-        
+        nh_priv.getParam("GlobalBox_min", vecGlobal_min);
+        nh_priv.getParam("GlobalBox_size", vecGlobal_size);
+        global_min << vecGlobal_min[0], vecGlobal_min[1], vecGlobal_min[2];
+        global_size <<vecGlobal_size[0], vecGlobal_size[1], vecGlobal_size[2];
         nh_priv.getParam("Rho", rho);
         nh_priv.getParam("TotalT", totalT);
 

@@ -89,7 +89,7 @@ int main(int argc, char **argv)
     Eigen::Vector3d g_goal = {goalp[0],goalp[1],goalp[2]};
     Eigen::Vector3d goal;
     bool if_initial = true;
-    double ball_pass_time = 0.0;
+    double ball_pass_time = 1.5;
     double min_dist2dynobs = 1e6;
     double tmp_dist,t_gap_ball;
     // cout << "mk1" << endl;
@@ -184,8 +184,9 @@ int main(int argc, char **argv)
     state = flying.get_state();
     flying.set_cod_update(false);
     flying.set_pcl_update(false);
-    if (flying.dynobs_pointer->ball_number>0 && (flying.dynobs_pointer->ballvel[0](0) > -0.2)) // || ros::Time::now().toSec()-flying.dynobs_pointer->ball_time_stamp > ball_pass_time
-    { cout<<"dyn ball from backside: "<<flying.dynobs_pointer->ballvel[0]<<endl;
+    if (flying.dynobs_pointer->ball_number>0 && ros::Time::now().toSec()-flying.dynobs_pointer->ball_time_stamp > ball_pass_time) // for bag sim// flying.dynobs_pointer->ball_number>0 && (flying.dynobs_pointer->ballvel[0](0) > -0.2)|| 
+    // { cout<<"dyn ball from backside: "<<flying.dynobs_pointer->ballvel[0]<<endl;
+    {cout<<"dyn ball time out: "<<flying.dynobs_pointer->ballvel[0]<<endl;
       flying.dynobs_pointer->ball_number = 0;
       // double p_gap = flying.dynobs_pointer->ballpos[0](0) - ct_pos(0);
       // double ball_pass_time1 = (-flying.dynobs_pointer->ballvel[0](0) + sqrt(pow(flying.dynobs_pointer->ballvel[0](0),2)-2*flying.dynobs_pointer->ballacc[0](0)*p_gap))/(2*p_gap);

@@ -214,14 +214,14 @@ void  Listener::ballCb(const obj_state_msgs::ObjectsStates::ConstPtr & msg)
     dynobs.ballacc.resize(dynobs.ball_number);
     dynobs.ball_sizes.clear();
     dynobs.ball_sizes.resize(dynobs.ball_number);
-    // dynobs.ball_time_stamp = msg->header.stamp.sec + msg->header.stamp.nsec * 1e-9 -0.05;
-    dynobs.ball_time_stamp = ros::Time::now().toSec() - 0.05;
+    dynobs.ball_time_stamp = msg->header.stamp.sec + msg->header.stamp.nsec * 1e-9;
+    // dynobs.ball_time_stamp = ros::Time::now().toSec() - 0.05; // for bag sim
     for (size_t i = 0; i < dynobs.ball_number; i++)
     {
     dynobs.ballpos[i](0) = msg->states[i].position.x;
     dynobs.ballpos[i](1) = msg->states[i].position.y;
     dynobs.ballpos[i](2) = msg->states[i].position.z;
-    dynobs.ballpos[i] = dynobs.ballpos[i]+P_E;
+    dynobs.ballpos[i] = dynobs.ballpos[i];  //+P_E, for bag sim.;
     dynobs.ballvel[i](0) = msg->states[i].velocity.x;
     dynobs.ballvel[i](1) = msg->states[i].velocity.y;
     dynobs.ballvel[i](2) = msg->states[i].velocity.z;

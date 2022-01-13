@@ -4,14 +4,18 @@
 # 14 12
 #18 16
 # 21 18
-# goal: [18.0,18.0,1.3]
-goal: [-18.0,-18.0,1.3]
+goal: [18.0,18.0,1.3]
+# goal: [-18.0,-18.0,1.3]
 ScaleSI:                    1.0
 MapHeight:                  2.3
-PolyhedronBox:              [6.0, 6.0, 3.0]
+PolyhedronBox:              [6.0, 6.0, 3.0]  # the size constriants for a single polyhedron generated from one path segment. number1: 
+                                             #offset along the path, number2: offset perdenticular to path, in the floor plane. 
+                                             #number 3: offset perdenticular to path, in the verticle plane.
+GlobalBox_min:              [-30.0, -30.0, 0.5]  #global box constraint. The lower bound for all polyhedrons.
+GlobalBox_size:             [60.0, 60.0, 3.0]    #global box size, the allowed vehicle moving range is : GlobalBox_min->GlobalBox_min+GlobalBox_size
 Rho:                        1000.0
 TotalT:                     0.0
-QdIntervals:                10   #sample number for each segment of the polynomial
+QdIntervals:                8   #sample number for each segment of the polynomial
 HorizHalfLen:               0.0
 VertHalfLen:                0.0
 SafeMargin:                 0.2

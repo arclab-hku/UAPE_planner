@@ -227,7 +227,7 @@ void TrajectoryGenerator_fast::Traj_opt(const MatrixXd &iniState, const MatrixXd
 void TrajectoryGenerator_fast::gen_polyhedrons(vec_Vec3f *obs_pointer)
 {   chrono::high_resolution_clock::time_point tic = chrono::high_resolution_clock::now();
     cout << "gen polyhedrons" <<endl;
-    EllipsoidDecomp3D decomp_util;
+    EllipsoidDecomp3D decomp_util(config.global_min,config.global_size);
    // cout << "mk00:" <<obs_pointer->size()<<endl;
     decomp_util.set_obs(*obs_pointer);
     //cout << "mk0" <<endl;
@@ -293,13 +293,13 @@ void TrajectoryGenerator_fast::gen_polyhedrons(vec_Vec3f *obs_pointer)
         // //Ellipsoid3D ellip = decomp_util.get_ellipsoids()[0];
         // decompPolys.push_back(poly);
         }
-    for (size_t i = 0; i < decompPolys.size(); i++)
-    {
-        decompPolys[i].add(Plane3D(Eigen::Vector3d(0.0, 0.0, config.mapHeight),
-                                          Eigen::Vector3d(0.0, 0.0, 1.0)));
-        decompPolys[i].add(Plane3D(Eigen::Vector3d(0.0, 0.0, 0.0),
-                                          Eigen::Vector3d(0.0, 0.0, -1.0)));
-    }
+    // for (size_t i = 0; i < decompPolys.size(); i++)
+    // {
+    //     decompPolys[i].add(Plane3D(Eigen::Vector3d(0.0, 0.0, config.mapHeight),
+    //                                       Eigen::Vector3d(0.0, 0.0, 1.0)));
+    //     decompPolys[i].add(Plane3D(Eigen::Vector3d(0.0, 0.0, 0.0),
+    //                                       Eigen::Vector3d(0.0, 0.0, -1.0)));
+    // }
     // visualization.visualizePolyH(decompPolys);   
     hPolys.clear();
     Eigen::MatrixXd current_poly;
