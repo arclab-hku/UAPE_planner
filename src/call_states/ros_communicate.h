@@ -33,6 +33,7 @@ using namespace Eigen;
          vector<Vector3d> centers;
          vector<Vector3d> obs_sizes;
          vector<Vector3d> vels;
+         vector<Vector3d> max_accs;
          double time_stamp;
          int dyn_number = 0;
          vector<Vector3d> ballpos;

@@ -230,7 +230,8 @@ int KinodynamicAstar::search(Eigen::Vector3d start_pt, Eigen::Vector3d start_v, 
           // if (edt_environment_->sdf_map_->getInflateOccupancy(pos) == 1 )
           
           if (!checkSafety (pos, current_time))
-          { cout << "check safe fail:" <<pos<<endl;
+          { 
+            // cout << "check safe fail:" <<pos<<endl;
             is_occ = true;
             break;
           }
@@ -411,7 +412,8 @@ double KinodynamicAstar::estimateHeuristic(Eigen::VectorXd x1, Eigen::VectorXd x
   ||(x1.head(3) - camera_vertex_.col(0)).dot((camera_vertex_.col(0) - camera_vertex_.col(4)).cross(camera_vertex_.col(0) - camera_vertex_.col(1)))<0
   ||(x1.head(3) - camera_vertex_.col(1)).dot((camera_vertex_.col(1) - camera_vertex_.col(4)).cross(camera_vertex_.col(1) - camera_vertex_.col(2)))<0)
   {cost *= 5;
-   cout << "sample out of FOV"<<endl;}
+  //  cout << "sample out of FOV"<<endl;
+   }
   return 1.0 * (1 + tie_breaker_) * cost;
 }
 
@@ -701,6 +703,10 @@ std::vector<Eigen::Vector3d> KinodynamicAstar::getKinoTraj(double delta_t)
 
 bool KinodynamicAstar::checkOldPath(vector<Eigen::Vector3d>& point_set)
 {   bool if_safe = true;
+    if (point_set.size()<3)
+    {
+      return false;
+    }
     for (size_t i =0; i<point_set.size(); i++)
     {
       if (!checkSafety (point_set[i], -1))

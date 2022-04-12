@@ -110,7 +110,7 @@ class RosClass
         void set_pcl_update(bool pcl_update);
         //basic missions
         States launch(void);
-        States step(double double_n, Vector3d pos,Vector3d vel,Vector3d acc, string mode);
+        States step(double double_n,double  yaw_rate,  Vector3d pos,Vector3d vel,Vector3d acc, string mode);
         void pub_traj(MatrixXd pos, MatrixXd vel, MatrixXd acc);
         void pub_path(vector<Eigen::Vector3d> &waypoints);
         void land(Vector3d endp);

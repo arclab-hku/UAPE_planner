@@ -4,28 +4,28 @@
 # 14 12
 #18 16
 # 21 18
-goal: [18.0,18.0,1.3]
-# goal: [-18.0,-18.0,1.3]
+goal: [15.0,-15.0,1.3]
+# goal: [-15.0,15.0,1.3]
 ScaleSI:                    1.0
-MapHeight:                  2.3
-PolyhedronBox:              [6.0, 6.0, 3.0]  # the size constriants for a single polyhedron generated from one path segment. number1: 
+MapHeight:                  2.8
+PolyhedronBox:              [4.0, 4.0, 3.0]  # the size constriants for a single polyhedron generated from one path segment. number1: 
                                              #offset along the path, number2: offset perdenticular to path, in the floor plane. 
                                              #number 3: offset perdenticular to path, in the verticle plane.
-GlobalBox_min:              [-30.0, -30.0, 0.5]  #global box constraint. The lower bound for all polyhedrons.
-GlobalBox_size:             [60.0, 60.0, 3.0]    #global box size, the allowed vehicle moving range is : GlobalBox_min->GlobalBox_min+GlobalBox_size
-Rho:                        1000.0
+GlobalBox_min:              [-30.0, -30.0, 0.3]  #global box constraint. The lower bound for all polyhedrons.
+GlobalBox_size:             [60.0, 60.0, 2.0]    #global box size, the allowed vehicle moving range is : GlobalBox_min->GlobalBox_min+GlobalBox_size
+Rho:                        20.0
 TotalT:                     0.0
 QdIntervals:                8   #sample number for each segment of the polynomial
 HorizHalfLen:               0.0
 VertHalfLen:                0.0
-SafeMargin:                 0.2
-VelMax:                     2.0  # maximal speed for kino-path searching and trajectory optimization. The code will double this max speed 
+SafeMargin:                 0.3
+VelMax:                     3.0  # maximal speed for kino-path searching and trajectory optimization. The code will double this max speed 
                                  #constrain (at least to 4 m/s) for trajectory when a ball is detected
 
 PathAccMax:                 5.0  #the max acc used for kino-a-star path search. It should be smaller when VelMax is smaller,
                                  # or the kino-path-searching may often fail because of the small speed constrain VS big acc sampling gap. 
                                  #Some recommended values: VelMax = 0.5//PathAccMax=1.0 ; VelMax = 2.0//PathAccMax=5.0
-ThrustAccMax:               20.0
+ThrustAccMax:               30.0
 BodyRateMax:                1.0
 GravAcc:                    9.81
 PenaltyPVTB:                [60000.0, 50000.0, 10000.0, 10000.0]   #P: convex hull  V: velocity T: thrust  B:body rate
@@ -34,11 +34,14 @@ OptRelTol:                  1.0e-4
 TrajVizWidth:               1.0
 TrajVizRGB:                 [0.8, 0.0, 0.0]
 ifMove:                     true #false #
-cam_depth:                  8.5   # the camera fov: deoth, horizontal view angle, vertical angle
+cam_depth:                  8.5   # the camera fov: depth, horizontal view angle, vertical angle
 h_fov:                      87.0
 v_fov:                      58.0
+MaxYawRange:    1.57
+YawGapWeight:  1.2
+YawGapMax:        0.35
 #RouteStoragePath:           './data/office_easy_1.txt'
-EllipsoidVizRGBA:            [1.0, 0.0, 1.0, 1.0]
+EllipsoidVizRGBA:           [1.0, 0.0, 1.0, 1.0]
 #QuadrotorPath:              '/misc/data/quadcopter.dae'
 sfck_t: 1.0  #should be smaller than horizon*0.5/velmax
 #kinodynamic path searching
@@ -49,7 +52,7 @@ search/acc_sample_num_: 2.0 #the acceleration sampling resolution will be 1/acc_
                             #samples in total. Thus, the computing burden will increase dramatically when increasing the sampling number. You can increase this 
                             #when the path searching often fails, depending on the computing resource of your hardware.
 search/w_time: 10.0
-search/horizon: 8.5
+search/horizon: 10.0
 search/lambda_heu: 5.0
 search/resolution_astar: 0.1
 search/time_resolution: 0.5
@@ -59,7 +62,7 @@ search/check_num: 5  #
 search/optimistic: true
 search/vel_margin: 1.0   # The final maximal speed constrain will be VelMax+vel_margin. You can give a positive number to relax the velocity 
                          #  constrain when the path planning often fails
-search/safety_radius: 0.25
+search/safety_radius: 0.35
 
 # You can see that the acceleration constrain for path planning and the trajectory optimization is not the same. It is a trade off between the computing
 #burden and the searching accuracy. This gap will influence the consistancy when navigating in the dynamic environment, which means the kino-path

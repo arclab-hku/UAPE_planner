@@ -4,7 +4,7 @@
     name="launch_sim_world" output="screen">
     </node>
 	<!--node pkg="ahpf_planner" type ="chen_filter_rgb" name="chen_filter_rgb" args="input:=/camera/depth/color/points" output="screen"/-->
-	<include file="$(find ahpf_planner)/launch/pcl_filter_rgb.launch"/>
+	<!-- <include file="$(find ahpf_planner)/launch/pcl_filter_rgb.launch"/> -->
 	<!--node name="rviz" pkg="rviz" type="rviz" args="-d $(find ahpf_planner)/launch/ccmapping_planning_demo.rviz" required="true" /-->
 	<node name="rviz" pkg="rviz" type="rviz" args="-d $(find ahpf_planner)/launch/planning_demo.rviz" required="true" />
 	<!--node pkg="ahpf_planner" type="vo_republish_rec" name="Odom2Pose" output="screen">

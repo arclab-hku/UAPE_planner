@@ -164,18 +164,21 @@ void Listener::obsCb(const sensor_msgs::PointCloud2::ConstPtr & msg)
     obs.clear();
     // obs.resize(cloud.points.size());
     dynobs.time_stamp = cloud.header.stamp.sec + cloud.header.stamp.nsec * 1e-9;
-    if (abs(cloud.points.back().y) + abs(cloud.points.back().z) > 1e-5)
-    {dynobs.dyn_number = 0;}
+    if (abs(cloud.points.back().y) + abs(cloud.points.back().z)  > 1e-5)
+    {dynobs.dyn_number = 0;
+    }
     else
     {
     dynobs.dyn_number = cloud.points.back().x;}
     dynobs.centers.clear();
     dynobs.vels.clear();
+    dynobs.max_accs.clear();
     dynobs.obs_sizes.clear();
     dynobs.centers.resize(dynobs.dyn_number);
     dynobs.vels.resize(dynobs.dyn_number);
     dynobs.obs_sizes.resize(dynobs.dyn_number);
-    obs.resize(cloud.points.size()-dynobs.dyn_number*3-1);
+    dynobs.max_accs.resize(dynobs.dyn_number);
+    obs.resize(cloud.points.size()-dynobs.dyn_number*4-1);
     // cout << "point cloud received, dynamic number: " <<  cloud.points.back().x << "pcl size:" <<cloud.points.size()<<endl;
     for (size_t i = 0; i < cloud.points.size()-1; i++)
     {
@@ -192,14 +195,22 @@ void Listener::obsCb(const sensor_msgs::PointCloud2::ConstPtr & msg)
     else if (i < obs.size() + 2*dynobs.dyn_number)
 {   dynobs.vels[i-obs.size()-dynobs.dyn_number](0) = cloud.points[i].x;
     dynobs.vels[i-obs.size()-dynobs.dyn_number](1) = cloud.points[i].y;
-    dynobs.vels[i-obs.size()-dynobs.dyn_number](2) = cloud.points[i].z;}
-    else
-{   dynobs.obs_sizes[i-obs.size()-2*dynobs.dyn_number](0) = cloud.points[i].x+0.4;
-    dynobs.obs_sizes[i-obs.size()-2*dynobs.dyn_number](1) = cloud.points[i].y+0.4;
-    dynobs.obs_sizes[i-obs.size()-2*dynobs.dyn_number](2) = cloud.points[i].z+0.4;}
+    dynobs.vels[i-obs.size()-dynobs.dyn_number](2) = cloud.points[i].z;
+    }
+    else if (i < obs.size() + 3*dynobs.dyn_number)
+{   dynobs.max_accs[i-obs.size()-2*dynobs.dyn_number](0) = cloud.points[i].x;
+    dynobs.max_accs[i-obs.size()-2*dynobs.dyn_number](1) = cloud.points[i].y;
+    dynobs.max_accs[i-obs.size()-2*dynobs.dyn_number](2) = cloud.points[i].z;
 
     }
-  
+    else
+{   dynobs.obs_sizes[i-obs.size()-3*dynobs.dyn_number](0) = cloud.points[i].x;
+    dynobs.obs_sizes[i-obs.size()-3*dynobs.dyn_number](1) = cloud.points[i].y;
+    dynobs.obs_sizes[i-obs.size()-3*dynobs.dyn_number](2) = cloud.points[i].z;}
+
+    }
+    if (dynobs.dyn_number>0)
+   cout << "point cloud received, dynamic number: " <<  cloud.points.back().x << "pcl size:" <<cloud.points.size()<<"accs:\n"<<dynobs.max_accs[0]<<endl;
 }
 void  Listener::ballCb(const obj_state_msgs::ObjectsStates::ConstPtr & msg)
 {   
