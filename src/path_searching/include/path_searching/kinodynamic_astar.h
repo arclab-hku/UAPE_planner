@@ -155,6 +155,8 @@ struct Obs
   /* ---------- record data ---------- */
   Eigen::Vector3d start_vel_, end_vel_, start_acc_;
   Eigen::Vector3d goal_;
+  double max_height_;
+  vector<double> glbox_o_, glbox_l_;
   Eigen::Matrix<double, 6, 6> phi_;  // state transit matrix
   // shared_ptr<SDFMap> sdf_map;
   sensor_msgs::PointCloud st_cloud_;
@@ -219,7 +221,7 @@ struct Obs
              Eigen::Vector3d end_vel, bool init, bool dynamic = false,
              double time_start = -1.0);
 
-  void setEnvironment(vec_Vec3f* cloud, dynobs_tmp* dynamic_obs, Eigen::Matrix<double, 3, 5>& camera_vertex);
+  void setEnvironment(vec_Vec3f* cloud, dynobs_tmp* dynamic_obs, Eigen::Matrix<double, 3, 5>& camera_vertex,vector<double> glbox_o,vector<double> glbox_l);
   std::vector<Eigen::Vector3d> getKinoTraj(double delta_t);
 
   void getSamples(double ts, vector<Eigen::Vector3d>& point_set, vector<Eigen::Vector3d>& start_end_derivatives);

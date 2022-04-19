@@ -22,7 +22,7 @@ struct Config
 
     // Params
     double scaleSI;
-    double mapHeight;
+    // double mapHeight;
     Vector3d polyhedronBox,global_min,global_size;
     double rho;
     double totalT;
@@ -37,6 +37,7 @@ struct Config
     double gravAcc;
     Vector4d penaltyPVTB;
     bool useC2Diffeo;
+    bool if_debug;
     double optRelTol;
     double trajVizWidth;
     Vector3d trajVizRGB;
@@ -59,7 +60,7 @@ struct Config
 
         nh_priv.getParam("ScaleSI", scaleSI);
         // cout << nh_priv.getParam("ScaleSI", scaleSI) << endl;
-        nh_priv.getParam("MapHeight", mapHeight);
+        // nh_priv.getParam("MapHeight", mapHeight);
         nh_priv.getParam("PolyhedronBox", vecPolyhedronBox);
         // cout << "mk4" << endl<< scaleSI << endl << vecPolyhedronBox[2] << endl << vecPolyhedronBox[0] <<endl;
         polyhedronBox << vecPolyhedronBox[0], vecPolyhedronBox[1], vecPolyhedronBox[2];
@@ -87,6 +88,7 @@ struct Config
         nh_priv.getParam("OptRelTol", optRelTol);
         nh_priv.getParam("TrajVizWidth", trajVizWidth);
         nh_priv.getParam("TrajVizRGB", vecTrajVizRGB);
+        nh_priv.getParam("if_debug",if_debug);
         trajVizRGB << vecTrajVizRGB[0], vecTrajVizRGB[1], vecTrajVizRGB[2];
        // nh_priv.getParam("RouteStoragePath", routeStoragePath);
        // routeStoragePath = packagePath + routeStoragePath;
@@ -151,7 +153,7 @@ class TrajectoryGenerator_fast
         vector<double> yaw_plan_t;
         
         bool check_traj_safe(const MatrixXd &cd_c, const VectorXd &cd_r, const double start_t);
-        void replan_traj(double MAXVEL,Vector3d &start,Vector3d &vi,Vector3d &ai,MatrixXd &waypoints,MatrixXd &cd_c,VectorXd &cd_r,vec_Vec3f *obs_pointer, dynobs_tmp *dynobs, double plan_t, Matrix<double, 3, 5> camera_vertex, bool full_trip = true);
+        void replan_traj(Vector3d &start,Vector3d &vi,Vector3d &ai,MatrixXd &waypoints,MatrixXd &cd_c,VectorXd &cd_r,vec_Vec3f *obs_pointer, dynobs_tmp *dynobs, double plan_t, Matrix<double, 3, 5> camera_vertex, bool full_trip = true);
         bool check_polyH_safe (const double start_t, const MatrixXd &waypoints,  Vector3d &start, vec_Vec3f *obs_pointer, dynobs_tmp *dynobs, double plan_t);
         void read_param (const ros::NodeHandle *nh_priv);
         double generate();

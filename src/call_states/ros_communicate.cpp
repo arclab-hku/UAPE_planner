@@ -43,7 +43,7 @@ void Listener::wptsCb(const nav_msgs::Path::ConstPtr& msg)
  {
  waypoints.row(i) << wpts.poses[i].pose.position.x, wpts.poses[i].pose.position.y, wpts.poses[i].pose.position.z;
  }
- cout<< "wpts callback:" << waypoints << endl << len <<endl;
+//  cout<< "wpts callback:" << waypoints << endl << len <<endl;
 // waypoints = waypoints_ins;
 }
 // void Listener::posCb(const geometry_msgs::PoseStamped::ConstPtr& msg)
@@ -209,8 +209,8 @@ void Listener::obsCb(const sensor_msgs::PointCloud2::ConstPtr & msg)
     dynobs.obs_sizes[i-obs.size()-3*dynobs.dyn_number](2) = cloud.points[i].z;}
 
     }
-    if (dynobs.dyn_number>0)
-   cout << "point cloud received, dynamic number: " <<  cloud.points.back().x << "pcl size:" <<cloud.points.size()<<"accs:\n"<<dynobs.max_accs[0]<<endl;
+    // if (dynobs.dyn_number>0)
+//    cout << "point cloud received, dynamic number: " <<  cloud.points.back().x << "pcl size:" <<cloud.points.size()<<"accs:\n"<<dynobs.max_accs[0]<<endl;
 }
 void  Listener::ballCb(const obj_state_msgs::ObjectsStates::ConstPtr & msg)
 {   

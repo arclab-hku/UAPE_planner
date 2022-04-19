@@ -29,7 +29,7 @@
     <env name="PX4_ESTIMATOR" value="$(arg est)" />
 
     <!-- gazebo configs -->
-    <arg name="gui" default="true"/>
+    <arg name="gui" default="false"/>
     <arg name="debug" default="false"/>
     <arg name="verbose" default="false"/>
     <arg name="paused" default="false"/>

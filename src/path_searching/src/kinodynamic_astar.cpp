@@ -47,7 +47,8 @@ int KinodynamicAstar::search(Eigen::Vector3d start_pt, Eigen::Vector3d start_v, 
   
   goal_ = end_pt;
   if(!checkSafety (goal_, -1.0))
-  { std::cout << "goal is occupied!" << std::endl;
+  { 
+    // std::cout << "goal is occupied!" << std::endl;
     return GOAL_OCC;}
   // cout<<"mark"<<endl;
   PathNodePtr cur_node = path_node_pool_[0];
@@ -105,19 +106,19 @@ int KinodynamicAstar::search(Eigen::Vector3d start_pt, Eigen::Vector3d start_v, 
         estimateHeuristic(cur_node->state, end_state, time_to_goal);
         computeShotTraj(cur_node->state, end_state, time_to_goal);
         if (init_search)
-          ROS_ERROR("Shot in first search loop!");
+          ROS_ERROR("[Hybrid A*] Shot in first search loop!");
       }
     }
     if (reach_horizon)
     {
       if (is_shot_succ_)
       {
-        std::cout << "reach end" << std::endl;
+        std::cout << "[Hybrid A*] reach end" << std::endl;
         return REACH_END;
       }
       else
       {
-        std::cout << "reach horizon" << std::endl;
+        std::cout << "[Hybrid A*] reach horizon" << std::endl;
         return REACH_HORIZON;
       }
     }
@@ -126,17 +127,17 @@ int KinodynamicAstar::search(Eigen::Vector3d start_pt, Eigen::Vector3d start_v, 
     {
       if (is_shot_succ_)
       {
-        std::cout << "reach end" << std::endl;
+        std::cout << "[Hybrid A*] reach end" << std::endl;
         return REACH_END;
       }
       else if (cur_node->parent != NULL)
       {
-        std::cout << "near end" << std::endl;
+        std::cout << "[Hybrid A*] near end" << std::endl;
         return NEAR_END;
       }
       else
       {
-        std::cout << "no path" << std::endl;
+        std::cout << "[Hybrid A*] no path" << std::endl;
         return NO_PATH;
       }
     }
@@ -191,7 +192,7 @@ int KinodynamicAstar::search(Eigen::Vector3d start_pt, Eigen::Vector3d start_v, 
         if (pro_node != NULL && pro_node->node_state == IN_CLOSE_SET)
         {
           if (init_search)
-            std::cout << "close" << std::endl;
+            // std::cout << "close" << std::endl;
           continue;
         }
 
@@ -199,9 +200,9 @@ int KinodynamicAstar::search(Eigen::Vector3d start_pt, Eigen::Vector3d start_v, 
         Eigen::Vector3d pro_v = pro_state.tail(3);
         if (fabs(pro_v(0)) > max_vel_ || fabs(pro_v(1)) > max_vel_ || fabs(pro_v(2)) > max_vel_)
         { 
-          if (init_search)
-            {std::cout << "vel: " << pro_v<<"  "<<max_vel_<<std::endl;}
-          else
+          if (!init_search)
+          //   {std::cout << "vel: " << pro_v<<"  "<<max_vel_<<std::endl;}
+          // else
           {continue;}
         }
 
@@ -210,8 +211,8 @@ int KinodynamicAstar::search(Eigen::Vector3d start_pt, Eigen::Vector3d start_v, 
         int diff_time = pro_t_id - cur_node->time_idx;
         if (diff.norm() == 0 && ((!dynamic) || diff_time == 0))
         {
-          if (init_search)
-            std::cout << "same" << std::endl;
+          // if (init_search)
+          //   std::cout << "same" << std::endl;
           continue;
         }
         
@@ -238,8 +239,8 @@ int KinodynamicAstar::search(Eigen::Vector3d start_pt, Eigen::Vector3d start_v, 
         }
         if (is_occ)
         {
-          if (init_search)
-            std::cout << "safe" << std::endl;
+          // if (init_search)
+          //   std::cout << "safe" << std::endl;
           continue;
         }
 
@@ -301,7 +302,7 @@ int KinodynamicAstar::search(Eigen::Vector3d start_pt, Eigen::Vector3d start_v, 
             use_node_num_ += 1;
             if (use_node_num_ == allocate_num_)
             {
-              cout << "run out of memory." << endl;
+              cout << "[Hybrid A*] run out of memory." << endl;
               return NO_PATH;
             }
           }
@@ -322,17 +323,17 @@ int KinodynamicAstar::search(Eigen::Vector3d start_pt, Eigen::Vector3d start_v, 
           }
           else
           {
-            cout << "error type in searching: " << pro_node->node_state << endl;
+            cout << "[Hybrid A*] error type in searching: " << pro_node->node_state << endl;
           }
         }
       }
   init_search = false;
   }
 
-  cout << "open set empty, no path!" << endl;
-  cout << "use node num: " << use_node_num_ << endl;
-  cout << "iter num: " << iter_num_ << endl;
-  cout << "kd-tree quiry times: "<<quiry_num_ << endl;
+  cout << "[Hybrid A*] open set empty, no path!" << endl;
+  cout << "[Hybrid A*] use node num: " << use_node_num_ << endl;
+  cout << "[Hybrid A*] iter num: " << iter_num_ << endl;
+  cout << "[Hybrid A*] kd-tree quiry times: "<<quiry_num_ << endl;
   return NO_PATH;
 }
 
@@ -573,8 +574,8 @@ void KinodynamicAstar::init()
   inv_time_resolution_ = 1.0 / time_resolution_;
   // edt_environment_->sdf_map_->getRegion(origin_, map_size_3d_);
 
-  cout << "origin_: " << origin_.transpose() << endl;
-  cout << "map size: " << map_size_3d_.transpose() << endl;
+  cout << "[Hybrid A*] origin_: " << origin_.transpose() << endl;
+  cout << "[Hybrid A*] map size: " << map_size_3d_.transpose() << endl;
 
   /* ---------- pre-allocated node ---------- */
   path_node_pool_.resize(allocate_num_);
@@ -589,7 +590,7 @@ void KinodynamicAstar::init()
 }
 
 // template <typename num_t>
-void KinodynamicAstar::setEnvironment(vec_Vec3f* cloud, dynobs_tmp* dynamic_obs, Eigen::Matrix<double, 3, 5>& camera_vertex)
+void KinodynamicAstar::setEnvironment(vec_Vec3f* cloud, dynobs_tmp* dynamic_obs, Eigen::Matrix<double, 3, 5>& camera_vertex, vector<double> glbox_o,vector<double> glbox_l)
 {
   // this->st_cloud_ = cloud；
   this->dynobs_pointer_ = dynamic_obs;
@@ -606,6 +607,9 @@ void KinodynamicAstar::setEnvironment(vec_Vec3f* cloud, dynobs_tmp* dynamic_obs,
   // my_kd_tree_t index(3 /*dim*/, pc2kd_, nanoflann::KDTreeSingleIndexAdaptorParams(20 /* max leaf */));
 	// index.buildIndex();
   time_offset = ros::Time::now().toSec() - dynamic_obs->time_stamp;
+  // max_height_ = max_height;
+  glbox_o_ = glbox_o;
+  glbox_l_ =  glbox_l;
 }
 inline bool KinodynamicAstar::checkSafety(const Eigen::Vector3d &query_pt, const double current_time)
 {
@@ -616,7 +620,12 @@ inline bool KinodynamicAstar::checkSafety(const Eigen::Vector3d &query_pt, const
   size_t ret = kdPtr_->knnSearch(query_pt.data(), 1, &nearest_index, &dist_sqr);
   // cout << "kd tree result:"<<dist_sqr<<"---"<<nearest_index<<"---"<<S_r<<"\n"<<pcPtr_->pts->at(nearest_index) <<endl<<query_pt<<endl;
   if (current_time < 0 || dynobs_pointer_->dyn_number==0)
-  {return dist_sqr > S_r;}
+  {return (dist_sqr > S_r) && (query_pt(2)+S_r < glbox_o_[2]+glbox_l_[2])
+  && (query_pt(2)-S_r > glbox_o_[2])
+  && (query_pt(1)+S_r < glbox_o_[1]+glbox_l_[1])
+  && (query_pt(1)-S_r > glbox_o_[1])
+  && (query_pt(0)+S_r < glbox_o_[0]+glbox_l_[0])
+  && (query_pt(0)-S_r > glbox_o_[0]);}
   
   double time = current_time + time_offset;
   bool dyn_safe = true;

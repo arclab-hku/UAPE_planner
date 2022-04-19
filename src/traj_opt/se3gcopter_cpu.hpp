@@ -39,6 +39,10 @@ class MINCO_S3
 public:
     MINCO_S3() = default;
     ~MINCO_S3() { A.destroy(); }
+    double pena = 0.0;
+    double pena_ball = 0.0;
+    double pena_acc = 0.0;
+    double cost_total;
       //my 
     // double compute_time = 0;
 private:
@@ -56,9 +60,6 @@ private:
     Eigen::VectorXd T5;
     Eigen::MatrixXd gdC;
     double* cost_block;
-    
-
-  
 
 private:
     template <typename EIGENVEC>
@@ -223,11 +224,11 @@ private:
                                   EIGENVEC &gdT,
                                   Eigen::MatrixXd &gdC,
                                   const double plan_t,
-                                  const dynobs_tmp *dynobs_pointer) const
+                                  const dynobs_tmp *dynobs_pointer)
     {
-        double pena = 0.0;
-        double pena_ball = 0.0;
-        double pena_acc = 0.0;
+        pena = 0.0;
+        pena_ball = 0.0;
+        pena_acc = 0.0;
         double vMaxSqr;
         if (dynobs_pointer->ball_number >0)
         {if (vMax <= 2)
@@ -579,7 +580,7 @@ private:
         // double endtime=(double)(end_time-start_time)/CLOCKS_PER_SEC;
         // compute_time+=endtime;
         cost += pena;
-        cout << "accumulate pena: " << cost << " pena: "<<pena<< " pena_dynobjects: "<<pena_ball<< " pena_dyn_accdistrib: "<<pena_acc<<endl;
+        
         return;
     }
 
@@ -803,6 +804,7 @@ private:
     // for dynamic obstacles
     double plan_t;
     const dynobs_tmp *dynobs_pointer;
+
 private:
     template <typename EIGENVEC>
     static inline void forwardT(const EIGENVEC &t,
@@ -1159,16 +1161,15 @@ private:
         splitToFineT(obj.coarseT, obj.intervals, obj.fineT);
         forwardP(p, obj.idxVs, obj.cfgVs, obj.innerP);
 
-        double cost;
-
+        obj.jerkOpt.cost_total = 0;
         obj.jerkOpt.generate(obj.innerP, obj.fineT);
         // cout << "mk31" <<endl;
         obj.jerkOpt.evalTrajCostGrad(obj.cons, obj.idxHs, obj.cfgHs, obj.ellipsoid,
                                      obj.safeMargin, obj.vMax, obj.thrAccMin,
                                      obj.thrAccMax, obj.bdrMax, obj.gAcc, obj.chi,
-                                     cost, proxyGradT, obj.gdInPs,obj.plan_t,obj.dynobs_pointer);
+                                     obj.jerkOpt.cost_total, proxyGradT, obj.gdInPs,obj.plan_t,obj.dynobs_pointer);
 
-        cost += rh * obj.coarseT.sum();
+        obj.jerkOpt.cost_total += rh * obj.coarseT.sum();
         proxyGradT.array() += rh;
 
         mergeToCoarseGradT(obj.intervals, proxyGradT);
@@ -1179,7 +1180,7 @@ private:
 
         gradt = proxyGradT.head(dimT);
         // cout << "final cost: " << cost <<endl;
-        return cost;
+        return obj.jerkOpt.cost_total;
     }
 
 public:
@@ -1428,16 +1429,16 @@ public:
         backwardP(innerP, idxVs, cfgVs, p);
 
         double minObjectivePenalty;
-        lbfgs_params.mem_size = 16; //default
+        lbfgs_params.mem_size = 8; //default
         lbfgs_params.past = 3; 
-        lbfgs_params.delta = 1.0e-2;
+        // lbfgs_params.delta = 1.0e-4;
         lbfgs_params.g_epsilon = 1.0e-5; //default
         lbfgs_params.min_step = 1.0e-20; //default
         lbfgs_params.max_iterations = 100; 
         lbfgs_params.abs_curv_cond = 0;
         lbfgs_params.delta = relCostTol;
         // cout << "mk2" <<endl;
-        cout << dynobs_pointer << endl;
+        // cout << dynobs_pointer << endl;
         cout << "gcopter dynamic obs number:" << dynobs_pointer->dyn_number <<"///"<<dynobs_pointer->ball_number<<endl;
         lbfgs::lbfgs_optimize(dimFreeT + dimFreeP,
                               x,
@@ -1456,6 +1457,7 @@ public:
 
         jerkOpt.generate(innerP, fineT);
         traj = jerkOpt.getTraj();
+        cout << "Total cost (include time): " <<  jerkOpt.cost_total << "\npena: "<< jerkOpt.pena<< "\npena_dynobjects: "<< jerkOpt.pena_ball<< "\npena_dyn_accdistrib: "<< jerkOpt.pena_acc<<endl;
         // std::cout<<"-------------------------------------\n";
         // std::cout<<"total time is "<<jerkOpt.compute_time<<" s";
         delete[] x;

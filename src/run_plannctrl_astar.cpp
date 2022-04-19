@@ -4,7 +4,7 @@
 #include <math.h>
 #include <Tools.h>
 #include <ros/ros.h>
-
+#include <cstdlib>
 #include <ros_missn.h>
 //#include <controllers/backstepping.h>
 #include <planner_fast.h>
@@ -15,8 +15,8 @@
 using namespace std;
 using namespace Eigen;
 
-#define CtrlFreq 100
-#define MaxVel 2.0
+// #define CtrlFreq 50
+// #define MaxVel 2.0
 
 unique_ptr<KinodynamicAstar> kino_path_finder_;
 int main(int argc, char **argv)
@@ -25,7 +25,6 @@ int main(int argc, char **argv)
     ros::init(argc, argv,"traj_planner");   
             // Create a handle to this process node.
     ros::NodeHandle nh("~");
-    RosClass flying(&nh, CtrlFreq);
     
     Vector3d ct_pos,ct_vel,ct_acc;
     ct_pos.setZero();
@@ -35,7 +34,7 @@ int main(int argc, char **argv)
     double last_path_t = 0;
     TrajectoryGenerator_fast reference;
     Eigen::Vector3d end_state = Eigen::Vector3d::Zero(3);
-    vector<double> goalp;
+    vector<double> goalp,gbbox_o,gbbox_l;
     Matrix<double, 3, 5> camera_vertex,camera_vertex_b;
     vector<Eigen::Vector3d> waypoints,start_end_derivatives;
     int status;
@@ -50,7 +49,9 @@ int main(int argc, char **argv)
     camera_vertex_b.col(4) << cam_depth,tan(h_fov/2*d2r)*cam_depth,-tan(v_fov/2*d2r)*cam_depth;
     double dis_goal;
     double sfck_t;
-    bool ifMove;
+    bool ifMove,if_rand;
+    int CtrlFreq;
+    bool if_debug;
     nh.getParam("goal", goalp);
     nh.getParam("search/horizon", dis_goal);
     nh.getParam("sfck_t", sfck_t);
@@ -58,6 +59,11 @@ int main(int argc, char **argv)
     nh.getParam("cam_depth", cam_depth);
     nh.getParam("h_fov", h_fov);
     nh.getParam("v_fov", v_fov);
+    nh.getParam("if_RandomGoal", if_rand);
+    nh.getParam("GlobalBox_min",gbbox_o);
+    nh.getParam("GlobalBox_size", gbbox_l);
+    nh.getParam("CtrlFreq", CtrlFreq);
+    nh.getParam("if_debug", if_debug);
     // dis_goal = dis_goal_ini-0.5;
     Eigen::Vector3d g_goal = {goalp[0],goalp[1],goalp[2]};
     Eigen::Vector3d goal;
@@ -68,10 +74,12 @@ int main(int argc, char **argv)
     double min_dist2dynobs = 1e6;
     double tmp_dist,t_gap_ball;
     double timee=0;
-    double traj_last_t=ros::Time::now().toSec();
+    ros::Time traj_last_t=ros::Time::now();
+    int rand_num=-1,rand_num_tmp;
     reference.read_param(&nh);
     States state;
     cout << "Traj node initialized!" << endl;
+    RosClass flying(&nh, CtrlFreq);
     do{state = flying.get_state();
        ct_pos = state.P_E;
             ros::Duration(0.1).sleep();}
@@ -137,18 +145,45 @@ int main(int argc, char **argv)
     while (nh.ok())
     {
     // dis_goal = dis_goal_ini-0.5;
+    if (if_rand && (if_end ||  (rand_num<0)))
+    {
+    if (rand_num<0) rand_num = rand()%4;
+    else 
+    {do rand_num_tmp =  rand()%4;
+    while (rand_num_tmp==rand_num);
+    rand_num = rand_num_tmp;}
+    if (rand_num==0)
+    {g_goal(0) = gbbox_o[0]+gbbox_l[0]-0.5;
+    g_goal(1) =  gbbox_o[1] + rand()%int(gbbox_l[1])+0.5;
+    }
+    else if (rand_num==1)
+    {g_goal(0) = gbbox_o[0] + rand()%int(gbbox_l[0])+0.5;
+    g_goal(1) =  gbbox_o[1]+gbbox_l[1]-0.5;
+    }
+    else if (rand_num==2)
+    {g_goal(0) = gbbox_o[0]+0.5;
+    g_goal(1) =   gbbox_o[1] + rand()%int(gbbox_l[1])+0.5;
+    }
+    else
+    {g_goal(0) = gbbox_o[0] + rand()%int(gbbox_l[0])+0.5;
+    g_goal(1) =  gbbox_o[1]+0.5;
+    }
+    g_goal(2) = 1.3;
+    if_end = false;
+    if_initial = true;
+    }
     if ((g_goal-ct_pos).norm()>dis_goal)
     {goal = ct_pos + (g_goal-ct_pos)/(g_goal-ct_pos).norm()*dis_goal;}
     else{goal = g_goal;}
-    double t1 = ros::Time::now().nsec;
+    ros::Time t1 = ros::Time::now();
     if (!flying.pcl_update) // || !flying.waypoint_update)  || !flying.trigger
     {
      ros::Duration(1/CtrlFreq).sleep();
-     timee = ros::Time::now().toSec() - traj_last_t + 1/CtrlFreq;
+     timee = (ros::Time::now() - traj_last_t).toSec()+ 1/CtrlFreq;
      state = flying.get_state();
      if ( timee > reference.total_t - 0.1)
      {
-      cout << "reach goal, wait for new path!" << endl;
+      if(if_debug) cout << "reach goal, wait for new path!" << endl;
       ros::Duration(0.5).sleep();
       continue;
      }
@@ -159,7 +194,7 @@ int main(int argc, char **argv)
     flying.set_cod_update(false);
     flying.set_pcl_update(false);
     if (flying.dynobs_pointer->ball_number>0 && ros::Time::now().toSec()-flying.dynobs_pointer->ball_time_stamp > ball_pass_time) // for bag sim// flying.dynobs_pointer->ball_number>0 && (flying.dynobs_pointer->ballvel[0](0) > -0.2)|| 
-    {cout<<"dyn ball time out: "<<flying.dynobs_pointer->ballvel[0]<<endl;
+    { if(if_debug) cout<<"dyn ball time out: "<<flying.dynobs_pointer->ballvel[0]<<endl;
       flying.dynobs_pointer->ball_number = 0;
       // double p_gap = flying.dynobs_pointer->ballpos[0](0) - ct_pos(0);
       // double ball_pass_time1 = (-flying.dynobs_pointer->ballvel[0](0) + sqrt(pow(flying.dynobs_pointer->ballvel[0](0),2)-2*flying.dynobs_pointer->ballacc[0](0)*p_gap))/(2*p_gap);
@@ -171,20 +206,22 @@ int main(int argc, char **argv)
       // else{ball_pass_time = 2;}
       // cout<<"ball_pass_time: "<<ball_pass_time<<endl;
     }
+    min_dist2dynobs = 1e6;
     for (int bi = 0; bi < flying.dynobs_pointer->dyn_number; bi++)
      
     { t_gap_ball = ros::Time::now().toSec() - flying.dynobs_pointer->time_stamp;
       tmp_dist = (state.P_E-flying.dynobs_pointer->centers[bi]-t_gap_ball*flying.dynobs_pointer->vels[bi]).norm();
       if (tmp_dist < min_dist2dynobs)
       {min_dist2dynobs = tmp_dist;
-      cout<<"min distance from objects to drone:"<<min_dist2dynobs<<endl<<state.P_E<<endl<<flying.dynobs_pointer->centers[bi]+t_gap_ball*flying.dynobs_pointer->vels[bi];}
+      if(if_debug) cout<<"min distance from objects to drone:"<<min_dist2dynobs<<endl<<state.P_E<<endl<<flying.dynobs_pointer->centers[bi]+t_gap_ball*flying.dynobs_pointer->vels[bi];}
     }
+    min_dist2dynobs = 1e6;
     for (int di = 0; di < flying.dynobs_pointer->ball_number && flying.dynobs_pointer->ballvel[0](0) < -0.4; di++)
     { t_gap_ball = ros::Time::now().toSec() - flying.dynobs_pointer->ball_time_stamp;
       tmp_dist = (state.P_E-(flying.dynobs_pointer->ballpos[di] + t_gap_ball*flying.dynobs_pointer->ballvel[di] + 0.5*t_gap_ball*t_gap_ball*flying.dynobs_pointer->ballacc[di])).norm();
       if (tmp_dist < min_dist2dynobs)
       {min_dist2dynobs = tmp_dist;
-      cout<<"min distance from ball to drone:"<<min_dist2dynobs<<endl;}
+      if(if_debug) cout<<"min distance from ball to drone:"<<min_dist2dynobs<<endl;}
     }
     if (if_initial || !ifMove)
     {
@@ -197,14 +234,14 @@ int main(int argc, char **argv)
     ct_vel = v_d;
     ct_acc = a_d;
     }
-    cout<<"track goal dist: "<<(state.P_E-p_d).norm()<<endl;
-    cout<<"if initial: "<<if_initial<<endl;
+    if(if_debug) cout<<"track goal dist: "<<(state.P_E-p_d).norm()<<endl;
+    // cout<<"if initial: "<<if_initial<<endl;
     camera_vertex = (state.Rota*camera_vertex_b).array().colwise() + state.P_E.array();
     if ((goal-ct_pos).norm()>1.0 && flying.obs_pointer->size()>0 && !if_initial)
     {
     chrono::high_resolution_clock::time_point tic = chrono::high_resolution_clock::now();
     // cout << "The obs pointer:\n" << flying.obs_pointer << "---pcl size: "<< flying.obs_pointer->size()<< endl;
-    kino_path_finder_->setEnvironment(flying.obs_pointer,flying.dynobs_pointer,camera_vertex);
+    kino_path_finder_->setEnvironment(flying.obs_pointer,flying.dynobs_pointer,camera_vertex,gbbox_o,gbbox_l);
     // cout << "The obs pointer:\n" << flying.obs_pointer << "---pcl size: "<< flying.obs_pointer->size()<< endl;
     if (!kino_path_finder_->checkOldPath(waypoints) || ros::Time::now().toSec() - last_path_t > sfck_t)
     {
@@ -250,10 +287,10 @@ int main(int argc, char **argv)
     MatrixXd waypoints_m = Map<MatrixXd>(waypoints[0].data(),3,waypoints.size());
     if (!if_initial)
     {
-    if_safe = reference.check_polyH_safe(traj_last_t, waypoints_m,ct_pos, flying.obs_pointer, flying.dynobs_pointer,ros::Time::now().toSec());
+    if_safe = reference.check_polyH_safe(traj_last_t.toSec(), waypoints_m,ct_pos, flying.obs_pointer, flying.dynobs_pointer,ros::Time::now().toSec());
     }
     // cout << "corridor update, check safety result:" << if_safe <<endl;
-    cout << "point cloud update, check safety result:" << if_safe <<endl;
+    if(if_debug) cout << "point cloud update, check safety result:" << if_safe <<endl;
     if (if_safe && (timee < sfck_t) && !if_initial)
     {
     //TrajectoryGenerator_fast reference(MaxVel,ct_pos,ct_vel,ct_acc,flying.waypoints,flying.cd_c,flying.cd_r);
@@ -266,21 +303,21 @@ int main(int argc, char **argv)
 //     if (v2(1)<0)
 //     {desire_psi = -desire_psi;}
  
-     timee = ros::Time::now().toSec() - traj_last_t + 1/CtrlFreq;
+     timee = (ros::Time::now() - traj_last_t).toSec() + 1/CtrlFreq;
         // cout<<"44"<<endl;
         // calculate control inputs
         }
     
     else
     {
-    reference.replan_traj(MaxVel,ct_pos,ct_vel,ct_acc,waypoints_m,flying.cd_c,flying.cd_r,flying.obs_pointer, flying.dynobs_pointer,ros::Time::now().toSec(),camera_vertex_b,if_initial);
+    reference.replan_traj(ct_pos,ct_vel,ct_acc,waypoints_m,flying.cd_c,flying.cd_r,flying.obs_pointer, flying.dynobs_pointer,ros::Time::now().toSec(),camera_vertex_b,if_initial);
     // cout << "111:" << endl;
     if (if_initial) if_initial = false;
-    traj_last_t =ros::Time::now().toSec();
+    traj_last_t =ros::Time::now();
     timee = 1/CtrlFreq;
-    cout << "old traj is not safe, get new traj!" << endl;
+    if(if_debug) cout << "old traj is not safe, get new traj!" << endl;
     }
-     cout << "traj time cost (ms): " << (ros::Time::now().nsec-t1)*1e-6 <<endl;
+     cout << "Total time cost (ms): " << (ros::Time::now()-t1).toNSec()*1e-6 <<endl;
     //  <<ros::Time::now().toSec()<<endl<<t1<<endl<<traj_last_t<<endl<<flying.dynobs_pointer->time_stamp<<endl;  
        }
      Vector2d desire_psi;
@@ -325,7 +362,7 @@ int main(int argc, char **argv)
 //             break;
 //         }
        // cout << "pub traj (out):" << reference.total_t <<endl;
-        reference.get_traj_samples(sp_pos, sp_vel,sp_acc, ros::Time::now().toSec() - traj_last_t);}
+        reference.get_traj_samples(sp_pos, sp_vel,sp_acc, (ros::Time::now() - traj_last_t).toSec());}
         else{reference.get_traj_samples(sp_pos, sp_vel,sp_acc, 0.0);}
         flying.pub_traj (sp_pos, sp_vel,sp_acc);
         flying.pub_path (waypoints);
@@ -336,7 +373,7 @@ int main(int argc, char **argv)
          flying.pub_ballstates();
         }
     ros::Duration(1/CtrlFreq).sleep();
-    if (if_end)
+    if (if_end && !if_rand)
     {break;}
 
     }
