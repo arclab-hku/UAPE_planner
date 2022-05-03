@@ -278,7 +278,7 @@ private:
         double omg,violaPos,violaPosPenaD,violaPosPena;
         double t_gap,t_now;
         double wei_dyn = ci(0)*5;
-        double wei_dyn_acc = ci(0)*0.002;
+        double wei_dyn_acc = ci(0)*0.002; //0.0005; //
         double wei_ball = ci(0)*20;
         int innerLoop,idx;
         constexpr double inv_a2 = 1 / 2.0 / 2.0, inv_b2 = 1.0;
@@ -475,6 +475,7 @@ private:
                 Eigen::Vector3d check_vec=((ct_center - pos).cwiseAbs() - dynobs_pointer->obs_sizes[m]*0.5);
                 Eigen::Vector3d check_vec_acc=((ct_center - pos).cwiseAbs() - dynobs_pointer->obs_sizes[m]*0.5 - 
                 dynobs_pointer->max_accs[m]*t_gap*t_gap/2);
+                double grad_prev_t = 0.0;
                 if ((check_vec_acc.array()<0.0).all() )
                 { 
                 //Eigen::Vector3d dist_vec = pos - ct_center;
@@ -484,7 +485,7 @@ private:
                 if ((check_vec.array()<safeMargin).all())
                 {
                 // double sa = dynobs_pointer->obs_sizes[m].squaredNorm()/4;
-                if(m==0)  vMaxSqr = vMax * vMax*1.2;
+                // if(m==0)  vMaxSqr = vMax * vMax*1.2;
                 Eigen::Vector3d half_len = (dynobs_pointer->obs_sizes[m]*0.5).array()+safeMargin;
                 inv_z = 1/(half_len(2)*half_len(2)); inv_x = 1/(half_len(0)*half_len(0)); inv_y = 1/(half_len(1)*half_len(1));
                 // double ellip_dist2 = dist_vec(2) * dist_vec(2) * inv_a2 + (dist_vec(0) * dist_vec(0) + dist_vec(1) * dist_vec(1)) * inv_b2;
@@ -498,8 +499,9 @@ private:
                 dJ_dP = wei_dyn * 3 * dist2_err2 * (-2) * Eigen::Vector3d(inv_x * dist_vec(0), inv_y * dist_vec(1), inv_z * dist_vec(2));  //gradient!
                 gdC.block<6, 3>(i * 6, 0) += beta0 * dJ_dP.transpose()* omg * step;
                 gdT(i) += omg * (wei_dyn * dist2_err3 / innerLoop + step * dJ_dP.dot(vel - dynobs_pointer->vels[m])*j/innerLoop);
+                grad_prev_t += dJ_dP.dot(-dynobs_pointer->vels[m]);
                 }
-                else
+                else if (t_gap<3.0)
                 {
                 Eigen::Vector3d half_len = (dynobs_pointer->obs_sizes[m]*0.5 +
                 dynobs_pointer->max_accs[m]*t_gap*t_gap/2);
@@ -513,8 +515,9 @@ private:
                 dJ_dP = wei_dyn_acc * 3 * dist2_err2 * (-2) * Eigen::Vector3d(inv_x * dist_vec(0), inv_y* dist_vec(1), inv_z * dist_vec(2));  //gradient!
                 gdC.block<6, 3>(i * 6, 0) += beta0 * dJ_dP.transpose()* omg * step;
                 gdT(i) += omg * (wei_dyn_acc * dist2_err3 / innerLoop + step * dJ_dP.dot(vel - dynobs_pointer->vels[m])*j/innerLoop); 
+                grad_prev_t += dJ_dP.dot(-dynobs_pointer->vels[m]);
                 }
-                double grad_prev_t = dJ_dP.dot(-dynobs_pointer->vels[m]);
+                
                 if (i > 0)
                 {
                     gdT.head(i).array() += omg * step * grad_prev_t;

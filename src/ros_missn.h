@@ -51,7 +51,7 @@ class RosClass
         // ros
         ros::NodeHandle nh_;
         ros::Subscriber state_sub_, exstate_sub_, pos_sub_, vel_sub_, imu_sub_,corridor_sub_,wpts_sub_,obs_sub_,odom_sub_,traj_start_trigger_sub_,ball_sub_;
-        ros::Publisher pos_pub_, raw_pub_, actuCtrl_pub_,traj_pub_,detail_traj_pub_,polyh_pub_,path_pub_,poscmd_pub_,cam_vispub_,ball_vispub_;
+        ros::Publisher pos_pub_, raw_pub_, actuCtrl_pub_,traj_pub_,detail_traj_pub_,polyh_pub_,path_pub_,poscmd_pub_,cam_vispub_,ball_vispub_, cam_listpub_;
         ros::ServiceClient arming_client_, land_client_, set_mode_client_;
         ros::Rate rate;
 
@@ -112,6 +112,7 @@ class RosClass
         States launch(void);
         States step(double double_n,double  yaw_rate,  Vector3d pos,Vector3d vel,Vector3d acc, string mode);
         void pub_traj(MatrixXd pos, MatrixXd vel, MatrixXd acc);
+        void pub_fovlist(MatrixXd pos, MatrixXd vel, MatrixXd acc,Eigen::Matrix<double, 3, 5> camera_vertex, vector<double> yaw_plan);
         void pub_path(vector<Eigen::Vector3d> &waypoints);
         void land(Vector3d endp);
         void pub_polyh (vec_E<Polyhedron3D> &polyhedra);

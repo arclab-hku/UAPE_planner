@@ -30,6 +30,7 @@ RosClass::RosClass(ros::NodeHandle* nodehandle, int FREQ):
     poscmd_pub_ = nh_.advertise<quadrotor_msgs::PositionCommand>("/position_cmd", 10);
     ball_vispub_ = nh_.advertise<visualization_msgs::MarkerArray>("/ball_vis_states", 10);
     cam_vispub_ = nh_.advertise<visualization_msgs::Marker>("/camera_fov", 10);
+    cam_listpub_ = nh_.advertise<visualization_msgs::MarkerArray>("/camera_fov_list", 10);
     // fcu modes
     arming_client_ = nh_.serviceClient<mavros_msgs::CommandBool>("/mavros/cmd/arming");
     land_client_ = nh_.serviceClient<mavros_msgs::CommandTOL>("/mavros/cmd/land");
@@ -250,6 +251,7 @@ void RosClass::pub_traj(MatrixXd pos, MatrixXd vel, MatrixXd acc)
  for (int i =0; i< pos.rows(); i++)
  {
         visualization_msgs::Marker pos_sample;
+        
         geometry_msgs::PoseStamped pose;
             pose.header.frame_id = "map";
         //    pose.header.stamp = rospy.Time.now()
@@ -258,7 +260,7 @@ void RosClass::pub_traj(MatrixXd pos, MatrixXd vel, MatrixXd acc)
             pose.pose.position.z = pos(i,2);
 
             traj.poses.push_back(pose);
-            if (i < 6)
+            if (i < 9)
             {
             pos_sample.header.frame_id = "map";
             pos_sample.header.stamp = ros::Time::now();
@@ -272,10 +274,129 @@ void RosClass::pub_traj(MatrixXd pos, MatrixXd vel, MatrixXd acc)
             pos_sample.color.b = 1.0;
             pos_sample.color.a = 1.0;
             pos_sample.lifetime = ros::Duration(0.5);
-            detail_traj.markers.push_back(pos_sample);}
+            detail_traj.markers.push_back(pos_sample);
+            }
  }
+
  traj_pub_.publish(traj);
  detail_traj_pub_.publish(detail_traj);
+}
+
+void RosClass::pub_fovlist(MatrixXd pos, MatrixXd vel, MatrixXd acc,Eigen::Matrix<double, 3, 5> camera_vertex_b, vector<double> yaw_plan)
+{
+    visualization_msgs::MarkerArray fovList;
+    acc.col(2).array() += 9.8016;
+ for (int j=0; j<yaw_plan.size(); j+=3)
+        {
+        double sp_yaw1 = yaw_plan[j];
+        // if (j==0) sp_yaw1 += 0.01;
+        double thrust = acc.row(j).norm();
+        double sp_theta = atan((acc.row(j)(0) + acc.row(j)(1)*tan(sp_yaw1))/(acc.row(j)(2)*(cos(sp_yaw1)+sin(sp_yaw1)*tan(sp_yaw1))));
+        double sp_phi = acos(acc.row(j)(2)/thrust/cos(sp_theta));
+        AngleAxisd rollAngle(AngleAxisd(sp_phi,Vector3d::UnitX()));
+        AngleAxisd pitchAngle(AngleAxisd(sp_theta,Vector3d::UnitY()));
+        AngleAxisd yawAngle(AngleAxisd(sp_yaw1,Vector3d::UnitZ()));
+        Quaterniond quaternion = yawAngle*pitchAngle*rollAngle;
+        Matrix3d Rota = Quaternion2Rota(quaternion.normalized());
+        //  cout<<"Rota:"<<Rota<<" pos: "<<pos.col(j).array()<<endl;
+        Matrix<double, 3, 5> camera_vertex = (Rota*camera_vertex_b).array().colwise() + pos.row(j).transpose().array();
+        visualization_msgs::Marker fov;
+        fov.type = fov.LINE_LIST;
+        fov.header.frame_id = "map";
+        fov.header.stamp = ros::Time::now();
+       
+        fov.color.a = 1.0;
+        fov.color.r = 1.0;
+        fov.color.g = 0.0;
+        fov.color.b = 0.0;
+        fov.scale.x = 0.03;
+        geometry_msgs::Point p3;
+        p3.x = camera_vertex.col(0)(0);
+        p3.y = camera_vertex.col(0)(1);
+        p3.z = camera_vertex.col(0)(2);
+        // p3.x,p3.y,p3.z = uav_pos
+        // dots=np.matmul(self.b2e,self.dots.T).T+uav_pos
+        for (int i =1;i<5;i++)
+            {geometry_msgs::Point p1,p2;
+        p1.x = camera_vertex.col(i)(0);
+        p1.y = camera_vertex.col(i)(1);
+        p1.z = camera_vertex.col(i)(2);
+            if (i < 4)
+                {        
+        p2.x = camera_vertex.col(i+1)(0);
+        p2.y = camera_vertex.col(i+1)(1);
+        p2.z = camera_vertex.col(i+1)(2);}
+            else
+                {        
+        p2.x = camera_vertex.col(1)(0);
+        p2.y = camera_vertex.col(1)(1);
+        p2.z = camera_vertex.col(1)(2);}
+            fov.points.emplace_back(p1);
+            fov.points.emplace_back(p2);
+            fov.points.emplace_back(p3);
+            fov.points.emplace_back(p1);}
+        fov.id=2*j;
+        fov.pose.orientation.w = 1.0;
+        fovList.markers.push_back(fov);   
+        //////    
+        Vector2d v1,v2;
+        v1 << 1.0,0.0;
+        v2 = vel.row(j).head(2);
+        sp_yaw1 = acos(v1.dot(v2) /(v1.norm()*v2.norm())); 
+        if (v2(1)<0)
+        {sp_yaw1 = -sp_yaw1;}
+       sp_theta = atan((acc.row(j)(0) + acc.row(j)(1)*tan(sp_yaw1))/(acc.row(j)(2)*(cos(sp_yaw1)+sin(sp_yaw1)*tan(sp_yaw1))));
+        sp_phi = acos(acc.row(j)(2)/thrust/cos(sp_theta));
+       AngleAxisd rollAngle1(AngleAxisd(sp_phi,Vector3d::UnitX()));
+       AngleAxisd pitchAngle1(AngleAxisd(sp_theta,Vector3d::UnitY()));
+       AngleAxisd yawAngle1(AngleAxisd(sp_yaw1,Vector3d::UnitZ()));
+        quaternion = yawAngle1*pitchAngle1*rollAngle1;
+       Rota = Quaternion2Rota(quaternion.normalized());
+       cout<<"Rota:"<<Rota<<endl;
+      camera_vertex = (Rota*camera_vertex_b).array().colwise() +  pos.row(j).transpose().array();
+        // visualization_msgs::Marker fov;
+        // fov.type = fov.LINE_LIST;
+        // fov.header.frame_id = "map";
+        // fov.header.stamp = ros::Time::now();
+        if (j==0) fov.color.a = 0.5;
+        else fov.color.a = 1.0;
+        fov.color.r = 0.0;
+        fov.color.b = 1.0;
+        fov.color.g = 0.2;
+        fov.scale.x = 0.03;
+        // geometry_msgs::Point p3;
+        p3.x = camera_vertex.col(0)(0);
+        p3.y = camera_vertex.col(0)(1);
+        p3.z = camera_vertex.col(0)(2);
+        // p3.x,p3.y,p3.z = uav_pos
+        // dots=np.matmul(self.b2e,self.dots.T).T+uav_pos
+        fov.points.clear();
+        for (int i =1;i<5;i++)
+            {
+                geometry_msgs::Point p1,p2;
+        p1.x = camera_vertex.col(i)(0);
+        p1.y = camera_vertex.col(i)(1);
+        p1.z = camera_vertex.col(i)(2);
+            if (i < 4)
+                {        
+        p2.x = camera_vertex.col(i+1)(0);
+        p2.y = camera_vertex.col(i+1)(1);
+        p2.z = camera_vertex.col(i+1)(2);}
+            else
+                {        
+        p2.x = camera_vertex.col(1)(0);
+        p2.y = camera_vertex.col(1)(1);
+        p2.z = camera_vertex.col(1)(2);}
+            
+            fov.points.emplace_back(p1);
+            fov.points.emplace_back(p2);
+            fov.points.emplace_back(p3);
+            fov.points.emplace_back(p1);}
+        fov.id=2*j+1;
+        fov.pose.orientation.w = 1.0;
+        fovList.markers.push_back(fov);   
+ }
+ cam_listpub_.publish(fovList);
 }
 
 void RosClass::pub_polyh (vec_E<Polyhedron3D> &polyhedra)
@@ -359,6 +480,12 @@ void RosClass::land(Vector3d endp)
 // //     cout << "state:" << state.P_E << state.Euler << listener_.flight_state <<endl;
 //     return state;
 // }
+
+// void RosClass::pub_fov_list(Eigen::Matrix<double, 3, 5>& camera_vertex)
+// {
+
+// }
+
 void RosClass::pub_fovshape(Eigen::Matrix<double, 3, 5>& camera_vertex)
 {
         visualization_msgs::Marker fov;

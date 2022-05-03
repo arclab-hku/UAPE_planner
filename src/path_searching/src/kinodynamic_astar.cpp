@@ -46,7 +46,7 @@ int KinodynamicAstar::search(Eigen::Vector3d start_pt, Eigen::Vector3d start_v, 
   start_acc_ = start_a;
   
   goal_ = end_pt;
-  if(!checkSafety (goal_, -1.0))
+  if(!checkSafety (goal_, -5.0))
   { 
     // std::cout << "goal is occupied!" << std::endl;
     return GOAL_OCC;}
@@ -412,7 +412,7 @@ double KinodynamicAstar::estimateHeuristic(Eigen::VectorXd x1, Eigen::VectorXd x
   ||(x1.head(3) - camera_vertex_.col(0)).dot((camera_vertex_.col(0) - camera_vertex_.col(3)).cross(camera_vertex_.col(0) - camera_vertex_.col(4)))<0
   ||(x1.head(3) - camera_vertex_.col(0)).dot((camera_vertex_.col(0) - camera_vertex_.col(4)).cross(camera_vertex_.col(0) - camera_vertex_.col(1)))<0
   ||(x1.head(3) - camera_vertex_.col(1)).dot((camera_vertex_.col(1) - camera_vertex_.col(4)).cross(camera_vertex_.col(1) - camera_vertex_.col(2)))<0)
-  {cost *= 5;
+  {cost *= 1.5;
   //  cout << "sample out of FOV"<<endl;
    }
   return 1.0 * (1 + tie_breaker_) * cost;
@@ -619,7 +619,14 @@ inline bool KinodynamicAstar::checkSafety(const Eigen::Vector3d &query_pt, const
   quiry_num_ += 1;
   size_t ret = kdPtr_->knnSearch(query_pt.data(), 1, &nearest_index, &dist_sqr);
   // cout << "kd tree result:"<<dist_sqr<<"---"<<nearest_index<<"---"<<S_r<<"\n"<<pcPtr_->pts->at(nearest_index) <<endl<<query_pt<<endl;
-  if (current_time < 0 || dynobs_pointer_->dyn_number==0)
+  if (current_time < -2 )
+  {return (dist_sqr > 4*S_r) && (query_pt(2)+S_r < glbox_o_[2]+glbox_l_[2])
+  && (query_pt(2)-S_r > glbox_o_[2])
+  && (query_pt(1)+S_r < glbox_o_[1]+glbox_l_[1])
+  && (query_pt(1)-S_r > glbox_o_[1])
+  && (query_pt(0)+S_r < glbox_o_[0]+glbox_l_[0])
+  && (query_pt(0)-S_r > glbox_o_[0]);}
+  else if (current_time < 0 || dynobs_pointer_->dyn_number==0)
   {return (dist_sqr > S_r) && (query_pt(2)+S_r < glbox_o_[2]+glbox_l_[2])
   && (query_pt(2)-S_r > glbox_o_[2])
   && (query_pt(1)+S_r < glbox_o_[1]+glbox_l_[1])
@@ -710,8 +717,9 @@ std::vector<Eigen::Vector3d> KinodynamicAstar::getKinoTraj(double delta_t)
   return state_list;
 }
 
-bool KinodynamicAstar::checkOldPath(vector<Eigen::Vector3d>& point_set)
+bool KinodynamicAstar::checkOldPath(vector<Eigen::Vector3d>& point_set, Eigen::Vector3d ct_pos)
 {   bool if_safe = true;
+    int del_id=0;
     if (point_set.size()<3)
     {
       return false;
@@ -723,7 +731,12 @@ bool KinodynamicAstar::checkOldPath(vector<Eigen::Vector3d>& point_set)
           if_safe = false;
           break;
       }
+      if (i>0 &&  del_id==0 && (point_set[i-1] - ct_pos).squaredNorm()+(point_set[i-1] -point_set.back()).squaredNorm() > (point_set.back() - ct_pos).squaredNorm()
+      && (point_set[i] - ct_pos).squaredNorm()+(point_set[i] -point_set.back()).squaredNorm() <(point_set.back() - ct_pos).squaredNorm())
+      del_id = i;
     }
+    point_set.erase(point_set.begin(),point_set.begin()+del_id);
+    if (!if_safe) cout<<"A* safety check not safe! "<<endl;
     return if_safe;
 }
 void KinodynamicAstar::getSamples(double ts, vector<Eigen::Vector3d>& point_set,
@@ -832,7 +845,7 @@ void KinodynamicAstar::getSamples(double ts, vector<Eigen::Vector3d>& point_set,
     // input of searched traj
     start_acc = node->input;
   }
-
+  start_end_derivatives.clear();
   start_end_derivatives.push_back(start_vel_);
   start_end_derivatives.push_back(end_vel);
   start_end_derivatives.push_back(start_acc);

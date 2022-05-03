@@ -16,7 +16,7 @@
 <param name="MK"       type="int" value="30"/>  -->
 
 <!-- params for simulation: -->
-<param name="cut_dis"       type="double" value="8.5"/> 
+<param name="cut_dis"       type="double" value="-8.5"/> 
 <param name="voxel_size"       type="double" value="0.1"/> 
 <param name="n_r"       type="double" value="0.21"/> 
 <param name="n_n"       type="int" value="12"/> 

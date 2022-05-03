@@ -127,7 +127,7 @@ bool GazeboRosRealsense::FillPointCloudHelper(sensor_msgs::PointCloud2 &point_cl
   sensor_msgs::PointCloud2Modifier pcd_modifier(point_cloud_msg);
   pcd_modifier.setPointCloud2FieldsByString(2, "xyz", "rgb");
   // convert to flat array shape, we need to reconvert later
-  pcd_modifier.resize(rows_arg * cols_arg);
+  
   point_cloud_msg.is_dense = true;
 
   sensor_msgs::PointCloud2Iterator<float> iter_x(pointcloud_msg_, "x");
@@ -140,34 +140,41 @@ bool GazeboRosRealsense::FillPointCloudHelper(sensor_msgs::PointCloud2 &point_cl
 
   double hfov = this->depthCam->HFOV().Radian();
   double fl = ((double)this->depthCam->ImageWidth()) / (2.0 * tan(hfov / 2.0));
-
+  double cx = double(cols_arg)/2;
+  double cy = double(rows_arg)/2;
+  double depth;
+  int downsp = 3;
+  pcd_modifier.resize((int((rows_arg-1)/downsp)+1) *(int((cols_arg-1)/downsp)+1));
   // convert depth to point cloud
-  for (uint32_t j = 0; j < rows_arg; j++)
+  for (uint32_t j = 0; j < rows_arg; j+=downsp)
   {
-    double pAngle;
-    if (rows_arg > 1)
-      pAngle = atan2((double)j - 0.5 * (double)(rows_arg - 1), fl);
-    else
-      pAngle = 0.0;
+    // double pAngle;
+    // if (rows_arg > 1)
+    //   pAngle = atan2((double)j - 0.5 * (double)(rows_arg - 1), fl);
+    // else
+    //   pAngle = 0.0;
 
-    for (uint32_t i = 0; i < cols_arg; i++, ++iter_x, ++iter_y, ++iter_z, ++iter_rgb)
+    for (uint32_t i = 0; i < cols_arg; i+=downsp, ++iter_x, ++iter_y, ++iter_z, ++iter_rgb)
     {
-      double yAngle;
-      if (cols_arg > 1)
-        yAngle = atan2((double)i - 0.5 * (double)(cols_arg - 1), fl);
-      else
-        yAngle = 0.0;
+      // double yAngle;
+      // if (cols_arg > 1)
+      //   yAngle = atan2((double)i - 0.5 * (double)(cols_arg - 1), fl);
+      // else
+      //   yAngle = 0.0;
 
-      double depth = toCopyFrom[index++];  // + 0.0*this->myParent->GetNearClip();
-
+      // depth = toCopyFrom[index++];  // + 0.0*this->myParent->GetNearClip();
+      depth = toCopyFrom[index];
+      index = j*cols_arg+i+downsp;
       if (depth > pointCloudCutOff_ && depth < pointCloudCutOffMax_)
       {
         // in optical frame
         // hardcoded rotation rpy(-M_PI/2, 0, -M_PI/2) is built-in
         // to urdf, where the *_optical_frame should have above relative
         // rotation from the physical camera *_frame
-        *iter_x = depth * tan(yAngle);
-        *iter_y = depth * tan(pAngle);
+        // *iter_x = depth * tan(yAngle);
+        // *iter_y = (depth * tan(pAngle));
+        *iter_x = (i -  cx)*depth/fl;
+        *iter_y = (j -  cy)*depth/fl;
         *iter_z = depth;
       }
       else  // point in the unseeable range
@@ -203,8 +210,8 @@ bool GazeboRosRealsense::FillPointCloudHelper(sensor_msgs::PointCloud2 &point_cl
   }
 
   // reconvert to original height and width after the flat reshape
-  point_cloud_msg.height = rows_arg;
-  point_cloud_msg.width = cols_arg;
+  point_cloud_msg.height =(int((rows_arg-1)/downsp)+1);
+  point_cloud_msg.width = (int((cols_arg-1)/downsp)+1);
   point_cloud_msg.row_step = point_cloud_msg.point_step * point_cloud_msg.width;
 
   return true;
@@ -280,10 +287,10 @@ sensor_msgs::CameraInfo cameraInfo(const sensor_msgs::Image &image,
 
   float focal = 0.5 * image.width / tan(0.5 * horizontal_fov);
 
-  info_msg.K[0] = focal;
-  info_msg.K[4] = focal;
-  info_msg.K[2] = info_msg.width * 0.5;
-  info_msg.K[5] = info_msg.height * 0.5;
+  info_msg.K[0] = focal;   //fx
+  info_msg.K[4] = focal;   //fy
+  info_msg.K[2] = info_msg.width * 0.5;  //cx
+  info_msg.K[5] = info_msg.height * 0.5;  //cy
   info_msg.K[8] = 1.;
 
   info_msg.P[0] = info_msg.K[0];

@@ -5,7 +5,7 @@ void TrajectoryGenerator_fast::read_param (const ros::NodeHandle *nh_priv){
     // cout << "mk2" << endl;
   config.loadParameters(*nh_priv);}
 // generate the trajectory
-void TrajectoryGenerator_fast::replan_traj(Vector3d &start,Vector3d &vi,Vector3d &ai,MatrixXd &waypoints,MatrixXd &cd_c,VectorXd &cd_r, vec_Vec3f *obs_pointer, dynobs_tmp *dynobs, double plan_t, Matrix<double, 3, 5> camera_vertex, bool full_trip)
+void TrajectoryGenerator_fast::replan_traj(Vector3d &start,Vector3d &vi,Vector3d &ai,MatrixXd &waypoints,vector<Vector3d> &start_end_divs, vec_Vec3f *obs_pointer, dynobs_tmp *dynobs, double plan_t, Matrix<double, 3, 5> camera_vertex, bool full_trip,bool if_reach)
 {  dynobs_pointer = dynobs;
    
   //  cout << "1" << endl;
@@ -36,7 +36,14 @@ void TrajectoryGenerator_fast::replan_traj(Vector3d &start,Vector3d &vi,Vector3d
    iniState.col(1) = vi;
    iniState.col(2) = ai;
    finState.col(0) = wPs.back();
+  // finState.col(1) = Vector3d::Zero(3);
+   if (if_reach || full_trip)
    finState.col(1) = Vector3d::Zero(3);
+   else {
+    // cout<< "end vel: "<<start_end_divs[1]<<" "<<start_end_divs[1].norm()<<endl;
+     finState.col(1) =  (finState.col(0)-iniState.col(0)).normalized()*config.velMax/4;//(waypoints.col(waypoints.cols()-1)-waypoints.col(waypoints.cols()-2)).normalized()*config.velMax/4;
+    //  cout<< "end vel: "<<finState.col(1)<<endl;
+     }//start_end_divs[1].normalized()*config.velMax; }//the end velocity of the kinoA* path //(finState.col(0)-iniState.col(0)).normalized()*config.velMax;
    finState.col(2) = Vector3d::Zero(3);
   // check_wps_in_polyH();
    Traj_opt(iniState,finState,plan_t);
@@ -54,8 +61,11 @@ double thrust,t_base,score;
 Vector2d v1,v2;
 int rows  = total_t/2/delta_t_yaw + 1;
 int cols = config.max_yaw_range/0.175+1;
-double v_psi0;
+double v_psi0,v_psi;
 double M_yaw[rows][cols], M_yaw1[rows][cols], M_vis_score[rows][cols], M_score[rows][cols];
+
+// vector<vector<Matrix<double, 3, 5>>> M_camera_vertex;
+// vector<Matrix<double, 3, 5>> fov_plan;
 int M_parent[rows][cols];
 double sp_yaw1,sp_theta,sp_phi;
 yaw_plan.clear();
@@ -70,11 +80,11 @@ t_base = plan_t - dynobs_pointer->time_stamp + ti;
 // yaw_plan_t.push_back(ti);
 sp_pos = traj.getPos(ti);
 sp_acc = traj.getAcc(ti);
-sp_vel = traj.getPos(total_t)-traj.getPos(0);
+sp_vel = traj.getPos(total_t)-traj.getPos(0);//traj.getVel(ti+0.1); //
 sp_acc(2) += G;
 thrust = sp_acc.norm();
 v2 = sp_vel.head(2);
-double v_psi=acos(v1.dot(v2) /(v1.norm()*v2.norm())); 
+v_psi=acos(v1.dot(v2) /(v1.norm()*v2.norm())); 
 if (v2(1)<0)
 {v_psi = -v_psi;}
 if (dynobs_pointer->dyn_number == 0)
@@ -95,8 +105,8 @@ if (row==0)
 {
 M_vis_score[row][col] = 1;
 M_yaw[row][col] = v_psi;  //
- M_score[row][col] = 3;
- continue;
+M_score[row][col] = 3;
+continue;
 }
 
 if (sp_yaw >  M_PI)
@@ -124,7 +134,7 @@ score_vis += max(0.0,double(10-(ct_center - sp_pos).norm()));
  }
 M_vis_score[row][col] = score_vis;
 M_yaw[row][col] = sp_yaw1;  //
-
+// M_camera_vertex[row][col] = camera_vertex;
 col +=1;
  }
  col = 0;
@@ -143,11 +153,18 @@ for (row = 1; row<rows; row++)
 
      for (int col0 = 0; col0<cols; col0++)
      {
+
       double yaw_gap_raw = abs(M_yaw[row][col] - M_yaw[row-1][col0]);
       double yaw_gap = (yaw_gap_raw >M_PI)? (2*M_PI-yaw_gap_raw) : yaw_gap_raw;
-      // cout << "yaw gap:" << yaw_gap << " "<<yaw_gap_raw<< endl;
       if (config.yaw_gap_max - yaw_gap < 0 && row>1)
          continue;
+      
+      if((M_vis_score[row][col]) ==0)
+      {
+     yaw_gap_raw = abs(M_yaw[row][col] - v_psi);
+     yaw_gap = (yaw_gap_raw >M_PI)? (2*M_PI-yaw_gap_raw) : yaw_gap_raw;}
+      // cout << "yaw gap:" << yaw_gap << " "<<yaw_gap_raw<< endl;
+
       tmp_score = M_vis_score[row][col]+ M_score[row-1][col0]+ (config.yaw_gap_max - yaw_gap)*config.yaw_w ;
       if (tmp_score > score)
       {parent = col0;
@@ -262,10 +279,11 @@ bool TrajectoryGenerator_fast::check_polyH_safe (const double start_t, const Mat
 {
 //  if_config =false;
  dynobs_pointer = dynobs;
+
  double start_t1 = plan_t - start_t;
 //  check_sfc_ind = 0;
  Vector3d pos;
- double dt = 0.05;
+ double dt = 0.025;
  Polyhedron3D poly;
 //  bool old_plhd_safe = true;
 //  Polyhedron3D poly = decompPolys[check_sfc_ind];
@@ -314,9 +332,13 @@ bool TrajectoryGenerator_fast::check_polyH_safe (const double start_t, const Mat
 //   else{
 //   cout<<"old corridor is not safe for new waypoints!"<<endl;
 //   }
-gen_polyhedrons(obs_pointer);
+ if ((last_check_pos - start).norm() >0.5 || (ros::Time::now()-last_check_time).toSec()>0.5)
+{gen_polyhedrons(obs_pointer);
+ last_check_pos = start;
+ last_check_time =ros::Time::now(); }
 // if_config = true;
 total_t = traj.getTotalDuration();
+if ((traj.getPos(total_t)-wPs.back()).norm() > 0.5) return false;
  if (start_t1+dt > total_t)
  { 
    cout<< "Safety check timestamp is close to traj end!"<<endl;
@@ -342,27 +364,35 @@ total_t = traj.getTotalDuration();
   pt[2] = pos(2);
   if (j == start_t1+dt)
   {
-    for (auto kk=0; kk<hPolys.size();kk++)
+    for (auto kk=0; kk<decompPolys.size();kk++)
     {
       check_sfc_ind = kk;
       poly = decompPolys[check_sfc_ind];
       if(poly.inside(pt)) break;
     }
   }
-  if(j > start_t1+dt && !poly.inside(pt)){
+  while (j > start_t1+dt && !poly.inside(pt)){
       check_sfc_ind +=1;
-      if (check_sfc_ind > hPolys.size()-1)
+      if (check_sfc_ind > decompPolys.size()-1)
       { cout<< "old traj SFC check fail!--1"<<endl;
         return false;}
       poly = decompPolys[check_sfc_ind];
-      if(!poly.inside(pt)){
-      cout<< "old traj SFC check fail!--2"<<endl;
-      return false;}
+      // if(!poly.inside(pt)){
+      // cout<< "old traj SFC check fail!--2: "<<check_sfc_ind<<"  "<<hPolys.size()<<endl;
+      // return false;}
   }
  }
  cout<<"old traj is safe for dyn obs, and all in new corridor!"<<endl;
  return true;}
 
+bool TrajectoryGenerator_fast::last_jointPolyH_check(Vector3d ct_pos)
+{
+double dis2goal = (wPs.back()- ct_pos).norm();
+if ((decompPolys.back().inside(ct_pos,config.safeMargin) && dis2goal  < config.horizon*0.7) || dis2goal<0.5*config.horizon) //if the initial   && !decompPolys[decompPolys.size()-2].inside(wPs[0])
+{ cout<<"pos in the last polyH: "<<decompPolys.back().inside(ct_pos,config.safeMargin)<<"  "<<dis2goal<<endl;
+  return true;}
+else return false;
+}
 inline bool TrajectoryGenerator_fast::dyn_safe_check(Vector3d pt, double check_t)
 // { return true; // for rosbag tests!!!
   {
@@ -457,8 +487,9 @@ void TrajectoryGenerator_fast::gen_polyhedrons(vec_Vec3f *obs_pointer)
             pt[0] = wPs[j](0);
             pt[1] = wPs[j](1);
             pt[2] = wPs[j](2);
-            if(!poly.inside(pt)){
-               if (j==wPs.size()-1) j--;
+            if(!poly.inside(pt,config.safeMargin)){
+               if (j==wPs.size()-1) 
+                j--;
                 break;
             }
         }
@@ -891,15 +922,19 @@ void TrajectoryGenerator_fast::get_traj_samples(MatrixXd &sp_pos, MatrixXd &sp_v
   total_t = traj.getTotalDuration();
  // cout << "pub traj:" << total_t <<endl;
   start_t = min(start_t,total_t);
-  int num = (total_t-start_t)/0.2;
+  double delta_t = 0.3;
+  int num = (total_t-start_t)/delta_t;
   num = max(num,1);
-  sp_pos.resize(num,3);
-  sp_vel.resize(num,3);
-  sp_acc.resize(num,3);
+  sp_pos.resize(num+1,3);
+  sp_vel.resize(num+1,3);
+  sp_acc.resize(num+1,3);
   for (int i =0; i<num; i++)
   {
-  sp_pos.row(i) = traj.getPos(start_t + i*0.2);
-  sp_vel.row(i) = traj.getVel(start_t + i*0.2);
-  sp_acc.row(i) = traj.getAcc(start_t + i*0.2);
+  sp_pos.row(i) = traj.getPos(start_t + i*delta_t);
+  sp_vel.row(i) = traj.getVel(min(start_t + i*delta_t+0.1,total_t));
+  sp_acc.row(i) = traj.getAcc(start_t + i*delta_t);
   }
+  sp_pos.row(num) = traj.getPos(total_t);
+  sp_vel.row(num) = traj.getVel(total_t);
+  sp_acc.row(num) = traj.getAcc(total_t);
 } 

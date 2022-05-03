@@ -215,7 +215,7 @@ struct Obs
   void setParam(ros::NodeHandle& nh);
   void init();
   void reset();
-  bool checkOldPath(vector<Eigen::Vector3d>& point_set);
+  bool checkOldPath(vector<Eigen::Vector3d>& point_set,Eigen::Vector3d ct_pos);
   int search(Eigen::Vector3d start_pt, Eigen::Vector3d start_vel,
              Eigen::Vector3d start_acc, Eigen::Vector3d end_pt,
              Eigen::Vector3d end_vel, bool init, bool dynamic = false,
