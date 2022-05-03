@@ -6,7 +6,7 @@ ADD_COMPILE_OPTIONS(-std=c++14 )
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -g")
 set(CMAKE_BUILD_TYPE "Release")
 #set(CMAKE_PREFIX_PATH "/usr/lib/x86_64-linux-gnu/cmake/gazebo/")
-set(gazebo_DIR "/usr/lib/x86_64-linux-gnu/cmake/gazebo/")
+# set(gazebo_DIR "/usr/lib/x86_64-linux-gnu/cmake/gazebo/")
 #set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -fPIC")
 list(INSERT CMAKE_MODULE_PATH 0 ${CMAKE_CURRENT_LIST_DIR}/../cmake)
 ## Compile as C++11, supported in ROS Kinetic and newer
@@ -22,7 +22,7 @@ find_package(Boost REQUIRED COMPONENTS system filesystem)
 #find_package(Boost REQUIRED COMPONENTS system filesystem)
 find_package(catkin REQUIRED COMPONENTS
   roscpp
-  gazebo REQUIRED
+  # gazebo REQUIRED
   rospy
   std_msgs
   visualization_msgs
@@ -32,8 +32,8 @@ find_package(catkin REQUIRED COMPONENTS
   cv_bridge
   sensor_msgs
   control_msgs
-  gazebo_msgs
-  gazebo_plugins
+  # gazebo_msgs
+  # gazebo_plugins
   geometry_msgs
   nav_msgs
   roslib
@@ -140,7 +140,7 @@ find_package(catkin REQUIRED COMPONENTS
     DEPENDS OpenCV Eigen Boost
     DEPENDS
     roscpp
-    gazebo_ros
+    # gazebo_ros
     image_transport
     camera_info_manager
     sensor_msgs
@@ -162,7 +162,7 @@ include_directories(
   #  ${Eigen3_INCLUDE_DIRS} 
 #  ${catkin_INCLUDE_DIRS}
 
-    ${GAZEBO_INCLUDE_DIRS}
+    # ${GAZEBO_INCLUDE_DIRS}
   ${CMAKE_CURRENT_SOURCE_DIR}
     ${Eigen3_INCLUDE_DIRS} 
     ${EIGEN3_INCLUDE_DIRS}
@@ -174,18 +174,18 @@ include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}/src/traj_opt
   ${CMAKE_CURRENT_SOURCE_DIR}/src/call_states)
 
-link_directories(${GAZEBO_LIBRARY_DIRS})
+# link_directories(${GAZEBO_LIBRARY_DIRS})
 
-add_library(realsense_gazebo_plugin
-    src/RealSensePlugin.cpp
-    src/gazebo_ros_realsense.cpp
-    )
+# add_library(realsense_gazebo_plugin
+#     src/RealSensePlugin.cpp
+#     src/gazebo_ros_realsense.cpp
+#     )
 
-target_link_libraries(realsense_gazebo_plugin
-    ${catkin_LIBRARIES}
-    ${GAZEBO_LIBRARIES})
-add_dependencies(realsense_gazebo_plugin
-    ${catkin_EXPORTED_TARGETS})
+# target_link_libraries(realsense_gazebo_plugin
+#     ${catkin_LIBRARIES}
+#     ${GAZEBO_LIBRARIES})
+# add_dependencies(realsense_gazebo_plugin
+#     ${catkin_EXPORTED_TARGETS})
 
 set(ENV_OFFB
 src/ros_missn.cpp 

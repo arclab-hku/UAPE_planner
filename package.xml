@@ -62,7 +62,7 @@
   <exec_depend>octomap_server</exec_depend>
 
   <depend>decomp_ros_utils</depend>
-  <depend>gazebo_ros</depend>
+  <!-- <depend>gazebo_ros</depend> -->
   <depend>sensor_msgs</depend>
   <depend>image_transport</depend>
   <depend>camera_info_manager</depend>
