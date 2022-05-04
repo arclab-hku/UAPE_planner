@@ -1,4 +1,4 @@
-# kFET_planner: fast trajectory planning for dynamic environments
+# UAPE_planner: Uncertainty-Aware and Perception-Enhanced trajectory planning for dynamic environments
 
 To run in Gazebo simulation, first modify gazebo_sim/launch/sim.sh line 7, l8-20. use your workspace name to replace "han_ws".
 
