@@ -1,6 +1,6 @@
-# kFET_planner: fast trajectory planning for dynamic environments
+# UAPE_planner: Uncertainty-Aware and Perception-Enhanced trajectory planning for dynamic environments
 
-To run in Gazebo simulation, first modify /launch/sim.sh line 7, l8-20. use your workspace name to replace "han_ws".
+To run in Gazebo simulation, first modify gazebo_sim/launch/sim.sh line 7, l8-20. use your workspace name to replace "han_ws".
 
 Also, in line 4-5 "111" should be replaced with your user password.
 
@@ -10,7 +10,7 @@ Compile this package and source your workspace.
 
 First, launch the gazebo simulation environment.
 
-`roslaunch ahpf_planner gt_sim_indoor.launch`
+`roslaunch gazebo_sim gt_sim_indoor.launch`
 
 Then, launch the px4 controller :
 
