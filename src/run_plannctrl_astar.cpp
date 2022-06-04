@@ -52,6 +52,7 @@ int main(int argc, char **argv)
     bool last_if_reach;
     double gap;
     double singlestep_time;
+    bool if_raw_pcl = false; //if directly use the raw point cloud from sensor
     nh.getParam("goal", goalp);
     nh.getParam("search/horizon", dis_goal);
     nh.getParam("sfck_t", sfck_t);
@@ -64,6 +65,7 @@ int main(int argc, char **argv)
     nh.getParam("GlobalBox_size", gbbox_l);
     nh.getParam("CtrlFreq", CtrlFreq);
     nh.getParam("if_debug", if_debug);
+    nh.getParam("UseRawPcl", if_raw_pcl);
     ros::Rate loop_rate(CtrlFreq); 
     camera_vertex_b.col(0) << 0,0,0;
     camera_vertex_b.col(1) << cam_depth,tan(h_fov/2*d2r)*cam_depth,tan(v_fov/2*d2r)*cam_depth;
@@ -92,7 +94,7 @@ int main(int argc, char **argv)
     reference.read_param(&nh);
     States state;
     cout << "Traj node initialized!" << endl;
-    RosClass flying(&nh, CtrlFreq);
+    RosClass flying(&nh, CtrlFreq,if_raw_pcl);
     do{state = flying.get_state();
        ct_pos = state.P_E;
             ros::Duration(0.1).sleep();}

@@ -1,6 +1,6 @@
 #include <ros_missn.h>
 
-RosClass::RosClass(ros::NodeHandle* nodehandle, int FREQ):
+RosClass::RosClass(ros::NodeHandle* nodehandle, int FREQ, bool if_raw_pcl):
         nh_(*nodehandle), 
         rate(FREQ)
 {
@@ -15,6 +15,8 @@ RosClass::RosClass(ros::NodeHandle* nodehandle, int FREQ):
     corridor_sub_ = nh_.subscribe<visualization_msgs::MarkerArray>("/corridor", 1, &Listener::crdCb, &listener_);
     wpts_sub_ = nh_.subscribe<nav_msgs::Path>("/wpts_path", 1, &Listener::wptsCb, &listener_);
     obs_sub_ = nh_.subscribe<sensor_msgs::PointCloud2>("/points_global_all", 1, &Listener::obsCb, &listener_);
+    if (if_raw_pcl)
+        raw_pcl_sub_ = nh_.subscribe<sensor_msgs::PointCloud2>("/camera/depth/color/points", 1, &Listener::pclCb, &listener_);
     odom_sub_ = nh_.subscribe<nav_msgs::Odometry>("/vicon_imu_ekf_odom", 1, &Listener::odomCb, &listener_);
     traj_start_trigger_sub_ = nh_.subscribe<geometry_msgs::PoseStamped>("/traj_start_trigger", 10, &Listener::triggerCb, &listener_);
     ball_sub_ = nh_.subscribe<obj_state_msgs::ObjectsStates>("/objects_states", 1, &Listener::ballCb, &listener_);
@@ -40,7 +42,7 @@ RosClass::RosClass(ros::NodeHandle* nodehandle, int FREQ):
     // control frequency
     Freq_ = FREQ;
     h_ = 1.0 / FREQ;
-    
+    listener_.init();
 }
 
 Vector3d RosClass::get_position()
@@ -62,6 +64,7 @@ void RosClass::init(double HGT, double yaw, double THR_C, double TOR_C, double M
 
     Start << 0.0, 0.0, HGT;
     End << 0.0, 0.0, 1.0;
+   
 }
 
 States RosClass::launch(void)

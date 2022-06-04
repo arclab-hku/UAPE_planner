@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdio.h>
+#include <math.h>
 #include <iostream>
 #include <Eigen/Eigen>
 
@@ -46,9 +47,12 @@ using namespace Eigen;
 
 class Listener
 {
+
     private:
         Vector3d A_B;
-
+        Vector3d camera_mt;
+        // Vector3d camera_mt(0.07,0,0.065);
+        Matrix3d Cam_mt;
     public:
         // mavros states
         mavros_msgs::State flight_state;
@@ -79,7 +83,7 @@ class Listener
         // Quaterniond Quat;
         // Matrix3d Rota, Rota_EB;
         // Vector3d Euler, Rate_E, Rate_B;
-
+        void init();
         void stateCb(const mavros_msgs::State::ConstPtr &);
         void estateCb(const mavros_msgs::ExtendedState::ConstPtr &);
         void posCb(const geometry_msgs::PoseStamped::ConstPtr &);
@@ -88,6 +92,7 @@ class Listener
         void crdCb(const visualization_msgs::MarkerArray::ConstPtr &);
         void wptsCb(const nav_msgs::Path::ConstPtr &);
         void obsCb(const sensor_msgs::PointCloud2::ConstPtr &);
+        void pclCb(const sensor_msgs::PointCloud2::ConstPtr &);
         void odomCb(const nav_msgs::Odometry::ConstPtr & msg);
         void triggerCb(const geometry_msgs::PoseStamped::ConstPtr & msg);
         void ballCb(const obj_state_msgs::ObjectsStates::ConstPtr & msg);

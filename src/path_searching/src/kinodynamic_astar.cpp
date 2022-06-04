@@ -598,7 +598,7 @@ void KinodynamicAstar::setEnvironment(vec_Vec3f* cloud, dynobs_tmp* dynamic_obs,
 	 // The adaptor
   // cout << "get dyn"<<endl;
   pcPtr_->pts = cloud;
-  // cout << "get cloud"<<endl;
+  // cout << "get cloud:\n"<<cloud->size()<<endl;
   kdPtr_ = std::make_shared<my_kd_tree_t>(3, *pcPtr_);
   // cout << "build index"<<endl;
   kdPtr_->buildIndex();

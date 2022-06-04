@@ -2,7 +2,11 @@
 This code includes all communication classes to MAVROS.
 */
 #include <call_states/ros_communicate.h>
-
+void Listener::init()
+{
+        camera_mt = {0.12,0,0};
+        Cam_mt<<0,0,1,-1,0,0,0,-1,0;
+}
 void Listener::stateCb(const mavros_msgs::State::ConstPtr& msg)
 {
     flight_state = *msg;
@@ -212,6 +216,38 @@ void Listener::obsCb(const sensor_msgs::PointCloud2::ConstPtr & msg)
     }
     // if (dynobs.dyn_number>0)
 //    cout << "point cloud received, dynamic number: " <<  cloud.points.back().x << "pcl size:" <<cloud.points.size()<<"accs:\n"<<dynobs.max_accs[0]<<endl;
+}
+void Listener::pclCb(const sensor_msgs::PointCloud2::ConstPtr & msg)
+{   
+
+    ros::spinOnce();
+    sensor_msgs::PointCloud cloud;
+
+    sensor_msgs::convertPointCloud2ToPointCloud(*msg,cloud);
+    // cout<<"convert!\n"<<cloud.points.size()<<"\n"<<P_E<< endl;
+
+    // cout<<"convert!\n"<<cloud.points.size()<<endl;
+    obs.clear();
+    // obs.resize(cloud.points.size());
+    dynobs.dyn_number = 0;
+    if (cloud.points.size() == 0 || Rota.sum() ==0)
+    return;
+    pcl_update = true;
+    int step = (1,cloud.points.size()/2000);
+    step = (step<1)?1:step;
+    // cout<<"Rota:\n"<<Rota<<endl<<Cam_mt<<endl;
+    for (int i=0; i<cloud.points.size();i+=step)
+    {
+    if (isnan(cloud.points[i].z))
+    continue;
+    obs.emplace_back(cloud.points[i].x, cloud.points[i].y, cloud.points[i].z);
+    // obs[i](1) = point.y;
+    // obs[i](2) = point.z;
+    
+    obs.back() =  Rota*(Cam_mt*obs.back()+camera_mt) + P_E;
+    // cout<<"point:\n"<<obs.size()<<endl<<obs.back()<<endl;
+    }
+       
 }
 void  Listener::ballCb(const obj_state_msgs::ObjectsStates::ConstPtr & msg)
 {   

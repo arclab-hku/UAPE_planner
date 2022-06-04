@@ -50,7 +50,7 @@ class RosClass
     private:
         // ros
         ros::NodeHandle nh_;
-        ros::Subscriber state_sub_, exstate_sub_, pos_sub_, vel_sub_, imu_sub_,corridor_sub_,wpts_sub_,obs_sub_,odom_sub_,traj_start_trigger_sub_,ball_sub_;
+        ros::Subscriber state_sub_, exstate_sub_, pos_sub_, vel_sub_, imu_sub_,corridor_sub_,wpts_sub_,obs_sub_,odom_sub_,traj_start_trigger_sub_,ball_sub_,raw_pcl_sub_ ;
         ros::Publisher pos_pub_, raw_pub_, actuCtrl_pub_,traj_pub_,detail_traj_pub_,polyh_pub_,path_pub_,poscmd_pub_,cam_vispub_,ball_vispub_, cam_listpub_;
         ros::ServiceClient arming_client_, land_client_, set_mode_client_;
         ros::Rate rate;
@@ -93,7 +93,7 @@ class RosClass
         double Yaw;
         sensor_msgs::PointCloud *pcl_pointer;
         // init ros node
-        RosClass(ros::NodeHandle *nodehandle, int FREQ);
+        RosClass(ros::NodeHandle *nodehandle, int FREQ, bool if_raw_pcl);
         States get_state();
         // init variables
         void init(
