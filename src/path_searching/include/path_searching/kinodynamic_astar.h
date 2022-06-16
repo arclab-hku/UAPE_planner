@@ -102,6 +102,10 @@ class NodeHashTable {
     data_3d_.clear();
     data_4d_.clear();
   }
+  int size()
+  {
+    return data_3d_.size() + data_4d_.size();
+  }
 };
 
 class KinodynamicAstar {
@@ -205,6 +209,7 @@ struct Obs
   int quiry_num_;
   Eigen::Matrix<double, 3, 5> camera_vertex_;
   double v_camera_fov = 0;
+  int call_search_num;
  public:
   KinodynamicAstar(){};
   ~KinodynamicAstar();

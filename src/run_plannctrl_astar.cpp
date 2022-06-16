@@ -26,7 +26,7 @@ int main(int argc, char **argv)
             // Create a handle to this process node.
     ros::NodeHandle nh("~");
     
-    Vector3d ct_pos,ct_vel,ct_acc;
+    Vector3d ct_pos,ct_vel,ct_acc,home_pos;
     ct_pos.setZero();
     Vector3d p_d, v_d, a_d, p_d_yaw;
     a_d.setZero();
@@ -48,10 +48,11 @@ int main(int argc, char **argv)
     bool ifMove,if_rand;
     int CtrlFreq;
     bool if_debug;
-    bool if_reach;
-    bool last_if_reach;
+    bool if_reach = false;
+    bool last_if_reach = false;
     double gap;
     double singlestep_time;
+    int return_home = 0;
     bool if_raw_pcl = false; //if directly use the raw point cloud from sensor
     nh.getParam("goal", goalp);
     nh.getParam("search/horizon", dis_goal);
@@ -66,6 +67,8 @@ int main(int argc, char **argv)
     nh.getParam("CtrlFreq", CtrlFreq);
     nh.getParam("if_debug", if_debug);
     nh.getParam("UseRawPcl", if_raw_pcl);
+    nh.getParam("ReturnHome", return_home);
+    
     ros::Rate loop_rate(CtrlFreq); 
     camera_vertex_b.col(0) << 0,0,0;
     camera_vertex_b.col(1) << cam_depth,tan(h_fov/2*d2r)*cam_depth,tan(v_fov/2*d2r)*cam_depth;
@@ -81,10 +84,12 @@ int main(int argc, char **argv)
     // dis_goal = dis_goal_ini-0.5;
     Eigen::Vector3d g_goal = {goalp[0],goalp[1],goalp[2]};
     Eigen::Vector3d goal = g_goal;
+    Eigen::Vector3d initial_goal = g_goal;
     bool if_initial = true;
     bool if_end = false;
     bool if_safe = true;
-    double ball_pass_time = 1.5;
+    bool ball_time_out = false;
+    double ball_pass_time = 1.0;
     double min_dist2dynobs = 1e6;
     double tmp_dist,t_gap_ball;
     double timee=0;
@@ -101,6 +106,7 @@ int main(int argc, char **argv)
     while (ct_pos.norm() < 1e-3);
     cout << "UAV message received!" << ct_pos << endl;
     reference.last_check_pos = ct_pos;
+    home_pos = ct_pos;
     // flying.dynobs_pointer->ball_number = 0;
     while (!flying.pcl_update)
     { ros::Duration(0.05).sleep();
@@ -115,9 +121,11 @@ int main(int argc, char **argv)
     while (nh.ok())  //main loop
     {
     // dis_goal = dis_goal_ini-0.5;
-        tem_dis_goal =dis_goal;
-    if (if_rand && (if_end ||  (rand_num<0)))   //choose goal randomly at the global bounding box boundary
+    tem_dis_goal =dis_goal;
+    if ((return_home >0 && if_end)|| (if_rand  && (if_end ||  (rand_num<0))))   //choose goal randomly at the global bounding box boundary
     {
+      if (if_rand)
+      {
     if (rand_num<0) rand_num = rand()%4;
     else 
     {do rand_num_tmp =  rand()%4;
@@ -140,8 +148,28 @@ int main(int argc, char **argv)
     g_goal(1) =  gbbox_o[1]+0.5;
     }
     g_goal(2) = 1.3;
+    goal = g_goal;
+      }
+    else if (return_home >1 && if_end)
+    {
+      if ((home_pos-ct_pos).norm() > 1)
+      g_goal = home_pos;
+      else
+      g_goal = initial_goal;
+      goal = g_goal;
+      cout<<"one goal: "<<g_goal << endl;
+      return_home --;
+    }
+    // else if (return_home <=1)
+    // {
+    //   cout<<"Reach the maximal trip number, exit!"<<endl;
+    //   break;
+    // }
+    // cout<<"goal:"<<goal<<" "<<g_goal<<endl;
     if_end = false;
     if_initial = true;
+    if_reach = false;
+    waypoints.clear();
         Vector2d v2 = (g_goal - state.P_E).head(2);
         Vector2d v1;
         v1<<1.0,0.0;
@@ -164,6 +192,7 @@ int main(int argc, char **argv)
     if (flying.dynobs_pointer->ball_number>0 && ros::Time::now().toSec()-flying.dynobs_pointer->ball_time_stamp > ball_pass_time) // for bag sim// flying.dynobs_pointer->ball_number>0 && (flying.dynobs_pointer->ballvel[0](0) > -0.2)|| 
     { if(if_debug) cout<<"dyn ball time out: "<<flying.dynobs_pointer->ballvel[0]<<endl;
       flying.dynobs_pointer->ball_number = 0;
+      ball_time_out = true;
       // double p_gap = flying.dynobs_pointer->ballpos[0](0) - ct_pos(0);
       // double ball_pass_time1 = (-flying.dynobs_pointer->ballvel[0](0) + sqrt(pow(flying.dynobs_pointer->ballvel[0](0),2)-2*flying.dynobs_pointer->ballacc[0](0)*p_gap))/(2*p_gap);
       // double ball_pass_time2 = (-flying.dynobs_pointer->ballvel[0](0) - sqrt(pow(flying.dynobs_pointer->ballvel[0](0),2)-2*flying.dynobs_pointer->ballacc[0](0)*p_gap))/(2*p_gap);
@@ -174,6 +203,11 @@ int main(int argc, char **argv)
       // else{ball_pass_time = 2;}
       // cout<<"ball_pass_time: "<<ball_pass_time<<endl;
     }
+    if (flying.dynobs_pointer->dyn_number>0 && ros::Time::now().toSec()-flying.dynobs_pointer->time_stamp > ball_pass_time) // for bag sim// flying.dynobs_pointer->ball_number>0 && (flying.dynobs_pointer->ballvel[0](0) > -0.2)|| 
+    {
+      flying.dynobs_pointer->dyn_number = 0;
+      cout<<"dyn time out: "<<endl;
+     }
     min_dist2dynobs = 1e6;
     for (int bi = 0; bi < flying.dynobs_pointer->dyn_number; bi++)
      
@@ -213,9 +247,10 @@ int main(int argc, char **argv)
     // cout << "The obs pointer:\n" << flying.obs_pointer << "---pcl size: "<< flying.obs_pointer->size()<< endl;
     kino_path_finder_->setEnvironment(flying.obs_pointer,flying.dynobs_pointer,camera_vertex,gbbox_o,gbbox_l);
     // cout << "The obs pointer:\n" << flying.obs_pointer << "---pcl size: "<< flying.obs_pointer->size()<< endl;
+    // cout<<"goal:"<<goal<<" "<<g_goal<<endl;
     if (!kino_path_finder_->checkOldPath(waypoints,ct_pos) || (reference.last_jointPolyH_check(ct_pos) && !if_reach ))
     {
-
+    //  cout << "Ready to search" <<endl;
     if (dis2goal>dis_goal)
     {goal = ct_pos + (g_goal-ct_pos)/dis2goal*dis_goal;
     if_reach = false;}
@@ -228,9 +263,10 @@ int main(int argc, char **argv)
     {
     tem_dis_goal -= 0.3;
     goal = ct_pos + (g_goal-ct_pos)/dis2goal*tem_dis_goal;
+    if (if_reach) g_goal = goal;
     kino_path_finder_->reset();
     status = kino_path_finder_->search(ct_pos, ct_vel, ct_acc, goal, end_state, true);
-    if_reach = false;
+    // if_reach = false;
     }
     if (status == KinodynamicAstar::NO_PATH) {
     cout << "[kino replan]: kinodynamic search fail!" << endl;
@@ -273,7 +309,7 @@ int main(int argc, char **argv)
     }
     // cout << "corridor update, check safety result:" << if_safe <<endl;
     if(if_debug) cout << "point cloud update, check safety result:" << if_safe <<endl;
-    if (if_safe  && !if_initial && !((!last_if_reach) && if_reach)) //&& (timee+sfck_t < reference.total_t || reference.total_t <sfck_t) 
+    if (if_safe  && !if_initial && !((!last_if_reach) && if_reach) && !ball_time_out) //&& (timee+sfck_t < reference.total_t || reference.total_t <sfck_t) 
     {
      gap =   chrono::duration_cast<chrono::microseconds>(chrono::high_resolution_clock::now() - last_traj_tic).count() * 1.0e-6;
      timee = gap + 1/CtrlFreq;
@@ -285,6 +321,7 @@ int main(int argc, char **argv)
     {
     reference.replan_traj(ct_pos,ct_vel,ct_acc,waypoints_m,start_end_derivatives,flying.obs_pointer, flying.dynobs_pointer,ros::Time::now().toSec(),camera_vertex_b,if_initial,if_reach);
     // cout << "111:" << endl;
+    if (ball_time_out) ball_time_out = false;
     if (if_initial) if_initial = false;
     traj_last_t =ros::Time::now();
     last_traj_tic = chrono::high_resolution_clock::now();
@@ -326,6 +363,7 @@ int main(int argc, char **argv)
     //  }
     }
      Vector2d desire_psi;
+    //  cout<< "distance to goal: "<<(g_goal-state.P_E).norm()<<endl;
         if ((g_goal-state.P_E).norm()>0.5)
         {
         reference.get_desire(timee, p_d, v_d, a_d,p_d_yaw);
@@ -339,6 +377,7 @@ int main(int argc, char **argv)
         desire_psi = reference.getYaw(timee);
         }
         else{
+          cout<< "goal reached: "<<g_goal<<endl;
           p_d=g_goal;
           v_d.setZero();
           a_d.setZero();
@@ -360,7 +399,7 @@ int main(int argc, char **argv)
     
     // ros::Duration(1/CtrlFreq).sleep();
     loop_rate.sleep();
-    if (if_end && !if_rand)
+    if (if_end && !if_rand && return_home <=1)
     {break;}
 
     }

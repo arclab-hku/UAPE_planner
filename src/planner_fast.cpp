@@ -36,14 +36,14 @@ void TrajectoryGenerator_fast::replan_traj(Vector3d &start,Vector3d &vi,Vector3d
    iniState.col(1) = vi;
    iniState.col(2) = ai;
    finState.col(0) = wPs.back();
-  // finState.col(1) = Vector3d::Zero(3);
-   if (if_reach || full_trip)
-   finState.col(1) = Vector3d::Zero(3);
-   else {
-    // cout<< "end vel: "<<start_end_divs[1]<<" "<<start_end_divs[1].norm()<<endl;
-     finState.col(1) =  (finState.col(0)-iniState.col(0)).normalized()*config.velMax/4;//(waypoints.col(waypoints.cols()-1)-waypoints.col(waypoints.cols()-2)).normalized()*config.velMax/4;
-    //  cout<< "end vel: "<<finState.col(1)<<endl;
-     }//start_end_divs[1].normalized()*config.velMax; }//the end velocity of the kinoA* path //(finState.col(0)-iniState.col(0)).normalized()*config.velMax;
+  finState.col(1) = Vector3d::Zero(3);
+  //  if (if_reach || full_trip)
+  //  finState.col(1) = Vector3d::Zero(3);
+  //  else {
+  //   // cout<< "end vel: "<<start_end_divs[1]<<" "<<start_end_divs[1].norm()<<endl;
+  //    finState.col(1) =  (finState.col(0)-iniState.col(0)).normalized()*config.velMax/4;//(waypoints.col(waypoints.cols()-1)-waypoints.col(waypoints.cols()-2)).normalized()*config.velMax/4;
+  //   //  cout<< "end vel: "<<finState.col(1)<<endl;
+  //    }//start_end_divs[1].normalized()*config.velMax; }//the end velocity of the kinoA* path //(finState.col(0)-iniState.col(0)).normalized()*config.velMax;
    finState.col(2) = Vector3d::Zero(3);
   // check_wps_in_polyH();
    Traj_opt(iniState,finState,plan_t);
@@ -190,7 +190,7 @@ for (row = rows-1; row>=0; row--)
   if (config.if_debug) std::cout<<"yaw planned: "<< yaw_plan.back()<<" row:"<<row <<" choosed_col: "<<choosed_col<<" rows: "<<rows<<std::endl;
 }
  std::reverse(std::begin(yaw_plan), std::end(yaw_plan));
-  // cout << "yaw plan finish" << endl;
+  cout << "yaw plan finish" << endl;
 }
 
 inline bool TrajectoryGenerator_fast::inFOV(Matrix<double, 3, 5> camera_vertex, Vector3d  ct_center)
@@ -368,10 +368,10 @@ if ((traj.getPos(total_t)-wPs.back()).norm() > 0.5) return false;
     {
       check_sfc_ind = kk;
       poly = decompPolys[check_sfc_ind];
-      if(poly.inside(pt)) break;
+      if(poly.inside(pt,config.safeMargin)) break;
     }
   }
-  while (j > start_t1+dt && !poly.inside(pt)){
+  while (j > start_t1+dt && !poly.inside(pt,config.safeMargin)){
       check_sfc_ind +=1;
       if (check_sfc_ind > decompPolys.size()-1)
       { cout<< "old traj SFC check fail!--1"<<endl;

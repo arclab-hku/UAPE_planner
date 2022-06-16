@@ -46,6 +46,8 @@ int KinodynamicAstar::search(Eigen::Vector3d start_pt, Eigen::Vector3d start_v, 
   start_acc_ = start_a;
   
   goal_ = end_pt;
+  call_search_num ++;
+  // cout<<"expanded nodes size: "<<expanded_nodes_.size()<<endl;
   if(!checkSafety (goal_, -5.0))
   { 
     // std::cout << "goal is occupied!" << std::endl;
@@ -143,6 +145,7 @@ int KinodynamicAstar::search(Eigen::Vector3d start_pt, Eigen::Vector3d start_v, 
     }
     open_set_.pop();
     cur_node->node_state = IN_CLOSE_SET;
+    // cout<<"close node: "<<cur_node<<endl;
     iter_num_ += 1;
 
     double res = 1 / acc_sample_num_, time_res = 1 / 1.0, time_res_init = 1 / 20.0;
@@ -191,8 +194,9 @@ int KinodynamicAstar::search(Eigen::Vector3d start_pt, Eigen::Vector3d start_v, 
         PathNodePtr pro_node = dynamic ? expanded_nodes_.find(pro_id, pro_t_id) : expanded_nodes_.find(pro_id);
         if (pro_node != NULL && pro_node->node_state == IN_CLOSE_SET)
         {
-          if (init_search)
-            // std::cout << "close" << std::endl;
+           // std::cout << "close" << std::endl;
+          // if (init_search)
+           
           continue;
         }
 
@@ -277,6 +281,8 @@ int KinodynamicAstar::search(Eigen::Vector3d start_pt, Eigen::Vector3d start_v, 
           if (pro_node == NULL)
           {
             pro_node = path_node_pool_[use_node_num_];
+            if (pro_node->node_state == IN_CLOSE_SET)
+            {cout<<"error caught: "<<pro_node->node_state << "  state: "<<pro_node->state<<endl;}
             pro_node->index = pro_id;
             pro_node->state = pro_state;
             pro_node->f_score = tmp_f_score;
@@ -323,7 +329,10 @@ int KinodynamicAstar::search(Eigen::Vector3d start_pt, Eigen::Vector3d start_v, 
           }
           else
           {
-            cout << "[Hybrid A*] error type in searching: " << pro_node->node_state << endl;
+            cout << "[Hybrid A*] error type in searching: " << pro_node->node_state << "  state: "<<pro_node->state<<"  call_search_num: "<<call_search_num<<endl;
+            if (pro_node->parent != NULL)
+            cout<<" parent state: "<<pro_node->parent->node_state<<"  "<<pro_node->parent->state<<endl;
+            cout<<"expanded close node: "<<pro_node<<endl;
           }
         }
       }
@@ -587,6 +596,7 @@ void KinodynamicAstar::init()
   phi_ = Eigen::MatrixXd::Identity(6, 6);
   use_node_num_ = 0;
   iter_num_ = 0;
+  call_search_num = 0;
 }
 
 // template <typename num_t>
@@ -654,15 +664,17 @@ void KinodynamicAstar::reset()
 {
   expanded_nodes_.clear();
   path_nodes_.clear();
-
+  // NodeHashTable expanded_nodes_new;
+  // expanded_nodes_ = expanded_nodes_new;
   std::priority_queue<PathNodePtr, std::vector<PathNodePtr>, NodeComparator> empty_queue;
   open_set_.swap(empty_queue);
 
   for (int i = 0; i < use_node_num_; i++)
   {
-    PathNodePtr node = path_node_pool_[i];
-    node->parent = NULL;
-    node->node_state = NOT_EXPAND;
+    // PathNodePtr node = ;
+    path_node_pool_[i]->parent = NULL;
+    path_node_pool_[i]->node_state = NOT_EXPAND;
+    // path_node_pool_[i] = new PathNode;
   }
 
   use_node_num_ = 0;

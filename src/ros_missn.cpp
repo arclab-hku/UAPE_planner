@@ -15,11 +15,13 @@ RosClass::RosClass(ros::NodeHandle* nodehandle, int FREQ, bool if_raw_pcl):
     corridor_sub_ = nh_.subscribe<visualization_msgs::MarkerArray>("/corridor", 1, &Listener::crdCb, &listener_);
     wpts_sub_ = nh_.subscribe<nav_msgs::Path>("/wpts_path", 1, &Listener::wptsCb, &listener_);
     obs_sub_ = nh_.subscribe<sensor_msgs::PointCloud2>("/points_global_all", 1, &Listener::obsCb, &listener_);
+    static_pcl_sub_ = nh_.subscribe<sensor_msgs::PointCloud2>("/points_global_static", 1, &Listener::static_pcl_Cb, &listener_);
     if (if_raw_pcl)
         raw_pcl_sub_ = nh_.subscribe<sensor_msgs::PointCloud2>("/camera/depth/color/points", 1, &Listener::pclCb, &listener_);
     odom_sub_ = nh_.subscribe<nav_msgs::Odometry>("/vicon_imu_ekf_odom", 1, &Listener::odomCb, &listener_);
     traj_start_trigger_sub_ = nh_.subscribe<geometry_msgs::PoseStamped>("/traj_start_trigger", 10, &Listener::triggerCb, &listener_);
     ball_sub_ = nh_.subscribe<obj_state_msgs::ObjectsStates>("/objects_states", 1, &Listener::ballCb, &listener_);
+    obj_sub_ = nh_.subscribe<obj_state_msgs::ObjectsStates>("/obj_states", 1, &Listener::objCb, &listener_);
     // publishers
     pos_pub_ = nh_.advertise<mavros_msgs::PositionTarget>("/mavros/setpoint_raw/local", 1);
     raw_pub_ = nh_.advertise<mavros_msgs::AttitudeTarget>("/mavros/setpoint_raw/attitude", 1);

@@ -160,6 +160,47 @@ void Listener::odomCb(const nav_msgs::Odometry::ConstPtr & msg)
         Quat = Quat.normalized();
         Rota = Quaternion2Rota(Quat);    //from body to earth
     }
+
+void Listener::static_pcl_Cb(const sensor_msgs::PointCloud2::ConstPtr & msg)
+{   sensor_msgs::PointCloud cloud;
+//    {cout<<"convert!"<<endl;
+    sensor_msgs::convertPointCloud2ToPointCloud(*msg,cloud);
+    pcl_update = true;
+    obs.clear();
+    // obs.resize(cloud.points.size());
+    // obs.resize(cloud.points.size);
+    if (cloud.points.size() == 0)
+    return;
+    for (auto &point:cloud.points)
+    {
+        obs.emplace_back(point.x,point.y,point.z);
+    }
+    
+}
+
+void  Listener::objCb(const obj_state_msgs::ObjectsStates::ConstPtr & msg)
+{   
+    cout << "obj received: "<<msg->states.size()<<endl;
+    // pcl_update = true;
+    dynobs.dyn_number = msg->states.size();
+    dynobs.time_stamp =msg->header.stamp.toSec();
+    dynobs.centers.clear();
+    dynobs.vels.clear();
+    dynobs.max_accs.clear();
+    dynobs.obs_sizes.clear();
+    // dynobs.centers.resize(dynobs.dyn_number);
+    // dynobs.vels.resize(dynobs.dyn_number);
+    // dynobs.obs_sizes.resize(dynobs.dyn_number);
+    // dynobs.max_accs.resize(dynobs.dyn_number);
+    for (auto state:msg->states)
+    {
+        dynobs.centers.emplace_back(state.position.x, state.position.y, state.position.z);
+        dynobs.vels.emplace_back(state.velocity.x, state.velocity.y, state.velocity.z);
+        dynobs.obs_sizes.emplace_back(state.size.x, state.size.y, state.size.z);
+        dynobs.max_accs.emplace_back(state.acceleration.x, state.acceleration.y, state.acceleration.z);
+    }
+}
+
 void Listener::obsCb(const sensor_msgs::PointCloud2::ConstPtr & msg)
 {   sensor_msgs::PointCloud cloud;
 //    {cout<<"convert!"<<endl;
@@ -167,7 +208,7 @@ void Listener::obsCb(const sensor_msgs::PointCloud2::ConstPtr & msg)
     pcl_update = true;
     obs.clear();
     // obs.resize(cloud.points.size());
-    dynobs.time_stamp = cloud.header.stamp.sec + cloud.header.stamp.nsec * 1e-9;
+    dynobs.time_stamp = cloud.header.stamp.toSec();
     // dynobs.time_stamp = ros::Time::now().toSec() - 0.03;
     if (abs(cloud.points.back().y) + abs(cloud.points.back().z)  > 1e-5)
     {dynobs.dyn_number = 0;
@@ -233,7 +274,7 @@ void Listener::pclCb(const sensor_msgs::PointCloud2::ConstPtr & msg)
     if (cloud.points.size() == 0 || Rota.sum() ==0)
     return;
     pcl_update = true;
-    int step = (1,cloud.points.size()/2000);
+    int step = cloud.points.size()/2000;
     step = (step<1)?1:step;
     // cout<<"Rota:\n"<<Rota<<endl<<Cam_mt<<endl;
     for (int i=0; i<cloud.points.size();i+=step)

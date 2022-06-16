@@ -92,6 +92,8 @@ class Listener
         void crdCb(const visualization_msgs::MarkerArray::ConstPtr &);
         void wptsCb(const nav_msgs::Path::ConstPtr &);
         void obsCb(const sensor_msgs::PointCloud2::ConstPtr &);
+        void static_pcl_Cb(const sensor_msgs::PointCloud2::ConstPtr &);
+        void objCb(const obj_state_msgs::ObjectsStates::ConstPtr & msg);
         void pclCb(const sensor_msgs::PointCloud2::ConstPtr &);
         void odomCb(const nav_msgs::Odometry::ConstPtr & msg);
         void triggerCb(const geometry_msgs::PoseStamped::ConstPtr & msg);
