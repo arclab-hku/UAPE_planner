@@ -743,13 +743,24 @@ bool KinodynamicAstar::checkOldPath(vector<Eigen::Vector3d>& point_set, Eigen::V
           if_safe = false;
           break;
       }
-      if (i>0 &&  del_id==0 && (point_set[i-1] - ct_pos).squaredNorm()+(point_set[i-1] -point_set.back()).squaredNorm() > (point_set.back() - ct_pos).squaredNorm()
-      && (point_set[i] - ct_pos).squaredNorm()+(point_set[i] -point_set.back()).squaredNorm() <(point_set.back() - ct_pos).squaredNorm())
-      del_id = i;
+      // if (i>0 &&  del_id==0 && (point_set[i-1] - ct_pos).squaredNorm()+(point_set[i-1] -point_set.back()).squaredNorm() > (point_set.back() - ct_pos).squaredNorm()
+      // && (point_set[i] - ct_pos).squaredNorm()+(point_set[i] -point_set.back()).squaredNorm() <(point_set.back() - ct_pos).squaredNorm())
+      // del_id = i;
     }
-    point_set.erase(point_set.begin(),point_set.begin()+del_id);
+    // point_set.erase(point_set.begin(),point_set.begin()+del_id);
     if (!if_safe) cout<<"A* safety check not safe! "<<endl;
     return if_safe;
+}
+bool KinodynamicAstar::line_collide(Eigen::Vector3d & p1, Eigen::Vector3d & p2)
+{
+  double dist = (p1-p2).norm();
+  int num = int(dist/0.3);
+  for (auto i=1;i<=num;i++)
+  {
+    if (!checkSafety(p1+(p2-p1)*i/num,-1))
+     return true;
+  }
+  return false;
 }
 void KinodynamicAstar::getSamples(double ts, vector<Eigen::Vector3d>& point_set,
                                   vector<Eigen::Vector3d>& start_end_derivatives)
@@ -768,7 +779,7 @@ void KinodynamicAstar::getSamples(double ts, vector<Eigen::Vector3d>& point_set,
   // cout << "duration:" << T_sum << endl;
 
   // Calculate boundary vel and acc
-  Eigen::Vector3d end_vel, end_acc;
+  Eigen::Vector3d end_vel, end_acc,last_pos;
   double t;
   if (is_shot_succ_)
   {
@@ -794,12 +805,13 @@ void KinodynamicAstar::getSamples(double ts, vector<Eigen::Vector3d>& point_set,
   bool sample_shot_traj = is_shot_succ_;
   node = path_nodes_.back();
   point_set.push_back(goal_);
+  Vector3d coord;
   for (double ti = T_sum; ti > -1e-5; ti -= ts)
   {
     if (sample_shot_traj)
     {
       // samples on shot traj
-      Vector3d coord;
+
       Vector4d poly1d, time;
 
       for (size_t j = 0; j < 4; j++)
@@ -810,8 +822,13 @@ void KinodynamicAstar::getSamples(double ts, vector<Eigen::Vector3d>& point_set,
         poly1d = coef_shot_.row(dim);
         coord(dim) = poly1d.dot(time);
       }
-
+      // cout<<"coord and last wpt:\n"<<coord<<"\n"<<point_set.back()<<endl;
+      if (line_collide(coord,point_set.back()))
+      point_set.push_back(last_pos);
+      else if (ti<ts && (point_set.back() - coord).norm() > 0.3)
       point_set.push_back(coord);
+      // cout<<"last_pos:\n"<<last_pos<<"\n"<<point_set.back()<<endl;}
+      last_pos = coord;
       t -= ts;
 
       /* end of segment */
@@ -828,11 +845,17 @@ void KinodynamicAstar::getSamples(double ts, vector<Eigen::Vector3d>& point_set,
       Eigen::Matrix<double, 6, 1> x0 = node->parent->state;
       Eigen::Matrix<double, 6, 1> xt;
       Vector3d ut = node->input;
-
       stateTransit(x0, xt, ut, t);
+      coord =  xt.head(3);
       // cout << "return node:"<<xt.head(3)<<endl;
-
-      point_set.push_back(xt.head(3));
+    //  cout<<"coord and last wpt:\n"<<coord<<"\n"<<point_set.back()<<endl;
+      if (line_collide(coord,point_set.back()))
+      point_set.push_back(last_pos);
+      else if (ti<ts && (point_set.back() - coord).norm() > 0.3)
+      point_set.push_back(coord);
+      // cout<<"last_pos:\n"<<last_pos<<"\n"<<point_set.back()<<endl;}
+      last_pos = coord;
+      // point_set.push_back(xt.head(3));
       t -= ts;
 
       // cout << "t: " << t << ", t acc: " << T_accumulate << endl;
@@ -843,6 +866,11 @@ void KinodynamicAstar::getSamples(double ts, vector<Eigen::Vector3d>& point_set,
       }
     }
   }
+//   if ((point_set.back() - coord).norm() > 0.5)
+//   {
+// cout<<"coord and last wpt:\n"<<coord<<"\n"<<point_set.back()<<endl;
+//    point_set.push_back(coord);
+//   }
   reverse(point_set.begin(), point_set.end());
 
   // calculate start acc

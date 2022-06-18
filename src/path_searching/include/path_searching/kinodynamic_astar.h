@@ -203,6 +203,7 @@ struct Obs
                     Eigen::Matrix<double, 6, 1>& state1, Eigen::Vector3d um,
                     double tau);
   inline bool checkSafety(const Eigen::Vector3d &query_pt, const double current_time);
+  inline bool line_collide(Eigen::Vector3d & p1, Eigen::Vector3d & p2);
 	double dist_sqr;
   size_t nearest_index = 0;
   double time_offset;

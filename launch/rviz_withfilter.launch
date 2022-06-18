@@ -1,8 +1,0 @@
-<?xml version="1.0"?>
-<launch>
-
-
-<node name="rviz" pkg="rviz" type="rviz" args="-d $(find ahpf_planner)/launch/planning_demo.rviz" required="true" />
-<include file="$(find ahpf_planner)/launch/pcl_filter_hw.launch">
-</include>	
-</launch>
