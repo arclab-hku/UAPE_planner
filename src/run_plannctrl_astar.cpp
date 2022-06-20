@@ -17,7 +17,10 @@ using namespace Eigen;
 
 // #define CtrlFreq 50
 // #define MaxVel 2.0
-
+double sign(double x)
+{
+  return (x > 0) - (x < 0);
+}
 unique_ptr<KinodynamicAstar> kino_path_finder_;
 int main(int argc, char **argv)
 {
@@ -48,6 +51,7 @@ int main(int argc, char **argv)
   bool ifMove, if_rand;
   int CtrlFreq;
   bool if_debug;
+  bool path_replan;
   bool if_reach = false;
   bool last_if_reach = false;
   double gap;
@@ -125,6 +129,7 @@ int main(int argc, char **argv)
   {
     // dis_goal = dis_goal_ini-0.5;
     tem_dis_goal = dis_goal;
+    path_replan = false;
     if ((return_home > 0 && if_end) || (if_rand && (if_end || (rand_num < 0)))) // choose goal randomly at the global bounding box boundary
     {
       if (if_rand)
@@ -189,9 +194,10 @@ int main(int argc, char **argv)
       {
         desire_yaw = -desire_yaw;
       }
+      double yaw_rate = abs(desire_yaw - state.Euler(2))>3.14159?-sign(desire_yaw - state.Euler(2))*0.6:sign(desire_yaw - state.Euler(2))*0.6;
       do
       {
-        state = flying.step(desire_yaw, 0, state.P_E, Vector3d::Zero(3), Vector3d::Zero(3), "pos_vel_acc_yaw_c");
+        state = flying.step(state.Euler(2) + yaw_rate*0.5, yaw_rate, state.P_E, Vector3d::Zero(3), Vector3d::Zero(3), "pos_vel_acc_yaw_c");
       } while (abs(state.Euler(2) - desire_yaw) > 0.3);
     }
 
@@ -222,7 +228,7 @@ int main(int argc, char **argv)
       if (flying.dynobs_pointer->dyn_number > 0 && ros::Time::now().toSec() - flying.dynobs_pointer->time_stamp > ball_pass_time) // for bag sim// flying.dynobs_pointer->ball_number>0 && (flying.dynobs_pointer->ballvel[0](0) > -0.2)||
       {
         flying.dynobs_pointer->dyn_number = 0;
-        cout << "dyn time out: " << endl;
+        cout << "dyn time out! " << endl;
       }
       min_dist2dynobs = 1e6;
       for (int bi = 0; bi < flying.dynobs_pointer->dyn_number; bi++)
@@ -271,14 +277,16 @@ int main(int argc, char **argv)
       double dis2goal = (g_goal - ct_pos).norm();
       if (dis2goal > 1.0 && flying.obs_pointer->size() > 0) // && !if_initial
       {
+
+        // cout << "The obs pointer:\n" << flying.obs_pointer << "---pcl size: "<< flying.obs_pointer->size()<< endl;
+        // cout<<"goal:"<<goal<<" "<<g_goal<<endl;
         chrono::high_resolution_clock::time_point tic = chrono::high_resolution_clock::now();
         // cout << "The obs pointer:\n" << flying.obs_pointer << "---pcl size: "<< flying.obs_pointer->size()<< endl;
         kino_path_finder_->setEnvironment(flying.obs_pointer, flying.dynobs_pointer, camera_vertex, gbbox_o, gbbox_l);
-        // cout << "The obs pointer:\n" << flying.obs_pointer << "---pcl size: "<< flying.obs_pointer->size()<< endl;
-        // cout<<"goal:"<<goal<<" "<<g_goal<<endl;
         if (!kino_path_finder_->checkOldPath(waypoints, ct_pos) || (reference.last_jointPolyH_check(ct_pos) && !if_reach))
         {
           //  cout << "Ready to search" <<endl;
+
           if (dis2goal > dis_goal)
           {
             goal = ct_pos + (g_goal - ct_pos) / dis2goal * dis_goal;
@@ -294,10 +302,18 @@ int main(int argc, char **argv)
           // last_path_t = ros::Time::now().toSec();
           while (status == KinodynamicAstar::GOAL_OCC)
           {
+            cout << "[kino replan]: Goal occluded:\n"
+                 << goal << endl;
             tem_dis_goal -= 0.3;
             goal = ct_pos + (g_goal - ct_pos) / dis2goal * tem_dis_goal;
             if (if_reach)
               g_goal = goal;
+            if ((goal - state.P_E).norm() < 0.5 || tem_dis_goal < 0.5)
+            {
+              g_goal = goal;
+              if_reach = false;
+              break;
+            }
             kino_path_finder_->reset();
             status = kino_path_finder_->search(ct_pos, ct_vel, ct_acc, goal, end_state, true);
             // if_reach = false;
@@ -327,10 +343,11 @@ int main(int argc, char **argv)
           }
           double compTime = chrono::duration_cast<chrono::microseconds>(chrono::high_resolution_clock::now() - tic).count() * 1.0e-3;
           cout << "kino path planning finished! time cost (ms)： " << compTime << endl;
-          if (status != KinodynamicAstar::NO_PATH)
+          if (status != KinodynamicAstar::NO_PATH && status != KinodynamicAstar::GOAL_OCC)
           {
             kino_path_finder_->getSamples(0.2, waypoints, start_end_derivatives);
           }
+          path_replan = true;
         }
         else
         {
@@ -343,12 +360,11 @@ int main(int argc, char **argv)
         waypoints.emplace_back(ct_pos);
         waypoints.emplace_back(goal);
       }
-
       MatrixXd waypoints_m = Map<MatrixXd>(waypoints[0].data(), 3, waypoints.size());
-      cout<<"waypoints: \n"<<waypoints_m<<endl;
+      // cout<<"waypoints: \n"<<waypoints_m<<endl;
       if (!if_initial)
       {
-        if_safe = reference.check_polyH_safe(traj_last_t.toSec(), waypoints_m, ct_pos, flying.obs_pointer, flying.dynobs_pointer, ros::Time::now().toSec());
+        if_safe = reference.check_polyH_safe(traj_last_t.toSec(), waypoints_m, ct_pos, flying.obs_pointer, flying.dynobs_pointer, ros::Time::now().toSec(), path_replan);
       }
       // cout << "corridor update, check safety result:" << if_safe <<endl;
       if (if_debug)
@@ -361,16 +377,16 @@ int main(int argc, char **argv)
 
       else
       {
-        // cout << "111:" <<if_initial<<endl;
+        cout << "Dynamic obj number: " << flying.dynobs_pointer->dyn_number << endl;
         reference.replan_traj(ct_pos, ct_vel, ct_acc, waypoints_m, start_end_derivatives, flying.obs_pointer, flying.dynobs_pointer, ros::Time::now().toSec(), camera_vertex_b, if_initial, if_reach);
-        
+
         if (ball_time_out)
           ball_time_out = false;
         if (if_initial)
           if_initial = false;
         traj_last_t = ros::Time::now();
         last_traj_tic = chrono::high_resolution_clock::now();
-        timee = 1 / CtrlFreq / 2;
+        timee = 0; // 1 / CtrlFreq / 2;
         // cout<<"if reach: "<<last_if_reach<<"  "<<if_reach<<endl;
         if (if_debug)
           cout << "old traj is not safe, get new traj!" << endl;

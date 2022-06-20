@@ -292,12 +292,12 @@ void TrajectoryGenerator_fast::check_wps_in_polyH(void)
   }
 }
 
-bool TrajectoryGenerator_fast::check_polyH_safe(const double start_t, const MatrixXd &waypoints, Vector3d &start, vec_Vec3f *obs_pointer, dynobs_tmp *dynobs, double plan_t)
+bool TrajectoryGenerator_fast::check_polyH_safe(const double plan_t, const MatrixXd &waypoints, Vector3d &start, vec_Vec3f *obs_pointer, dynobs_tmp *dynobs, double start_t,bool path_replan)
 {
   //  if_config =false;
   dynobs_pointer = dynobs;
 
-  double start_t1 = plan_t - start_t;
+  double start_t1 = start_t - plan_t;
   //  check_sfc_ind = 0;
   Vector3d pos;
   double dt = 0.025;
@@ -306,34 +306,8 @@ bool TrajectoryGenerator_fast::check_polyH_safe(const double start_t, const Matr
   pt[0] = start(0);
   pt[1] = start(1);
   pt[2] = start(2);
-  //  bool old_plhd_safe = true;
-  //  Polyhedron3D poly = decompPolys[check_sfc_ind];
-  //  for (uint i =0; i< waypoints.cols(); i++)  // check if neccessary to update corridor
-  //  {
-  //   //cout<<"(in func) check traj safe:\n"<<j<<endl<<total_t<<endl;
-  //   pos = waypoints.col(i);
-
-  //   Vec3f pt;
-  //   pt[0] = pos(0);
-  //   pt[1] = pos(1);
-  //   pt[2] = pos(2);
-
-  //   // check_sfc_ind = 0;
-
-  //   if(!poly.inside(pt)){
-  //       check_sfc_ind +=1;
-  //   if (check_sfc_ind > hPolys.size()-1)
-  //   {
-  //    break;}
-  //       poly = decompPolys[check_sfc_ind];
-  //       if(!poly.inside(pt)){
-  //       old_plhd_safe = false;
-  //       break;}
-  //   }
-  //    }
-  //  vector<Vector3d> out_points;
-  //  vector<Vector3d> out_centers;
-
+  total_t = traj.getTotalDuration();
+  
   wPs.clear();
   if (waypoints.cols() < 3)
   {
@@ -349,6 +323,7 @@ bool TrajectoryGenerator_fast::check_polyH_safe(const double start_t, const Matr
       wPs.emplace_back(waypoints.col(i).transpose());
     }
   }
+
   // if (old_plhd_safe)
   // { cout<<"old corridor is safe for new waypoints!"<<endl;
   //   // return true;
@@ -356,16 +331,21 @@ bool TrajectoryGenerator_fast::check_polyH_safe(const double start_t, const Matr
   //   else{
   //   cout<<"old corridor is not safe for new waypoints!"<<endl;
   //   }
-  if (!decompPolys.front().inside(pt, config.safeMargin) || (last_check_pos - start).norm() > config.sfck_td || (ros::Time::now() - last_check_time).toSec() > config.sfck_td)
+  bool in_first_polyh = decompPolys.front().inside(pt, 2*config.safeMargin);
+  if (path_replan || !in_first_polyh || (last_check_pos - start).norm() > config.sfck_td || (ros::Time::now() - last_check_time).toSec() > config.sfck_td)
   {
     gen_polyhedrons(obs_pointer);
     last_check_pos = start;
     last_check_time = ros::Time::now();
   }
   // if_config = true;
-  total_t = traj.getTotalDuration();
-  if ((traj.getPos(total_t) - wPs.back()).norm() > 1.0)
+  
+  if (path_replan && (traj.getPos(total_t)-wPs.back()).norm() > config.horizon*0.3)
     return false;
+  // if ((path_replan && start_t1 > 0.15*total_t) || start_t1 > 0.4*total_t)
+  // return false;
+  // if (!in_first_polyh || (traj.getPos(total_t)-wPs.back()).norm() > config.horizon*0.5)
+  //   return false;
   if (start_t1 + dt > total_t)
   {
     cout << "Safety check timestamp is close to traj end!" << endl;
@@ -401,12 +381,13 @@ bool TrajectoryGenerator_fast::check_polyH_safe(const double start_t, const Matr
           break;
       }
     }
-    while (j > start_t1 + dt && !poly.inside(pt, config.safeMargin))
+    while (j > start_t1 + dt && !poly.inside(pt, config.safeMargin) && (last_traj_polyH_check || !poly.inside(pt, 0)))
     {
       check_sfc_ind += 1;
       if (check_sfc_ind > decompPolys.size() - 1)
       {
-        cout << "old traj SFC check fail!--1" << endl;
+        cout << "old traj SFC check fail! Traj time:" << j<<"\ncheck pos:\n"<<pos<<"\nindex:"<<check_sfc_ind<< endl;
+          last_traj_polyH_check = false;
         return false;
       }
       poly = decompPolys[check_sfc_ind];
@@ -415,16 +396,18 @@ bool TrajectoryGenerator_fast::check_polyH_safe(const double start_t, const Matr
       // return false;}
     }
   }
+    last_traj_polyH_check = true;
   cout << "old traj is safe for dyn obs, and all in new corridor!" << endl;
   return true;
 }
 
 bool TrajectoryGenerator_fast::last_jointPolyH_check(Vector3d ct_pos)
 {
+  //  cout << "wPs size: " << wPs.size()<<endl;
   double dis2goal = (wPs.back() - ct_pos).norm();
-  if ((decompPolys.back().inside(ct_pos, config.safeMargin) && dis2goal < config.horizon * 0.7) || dis2goal < 0.5 * config.horizon) // if the initial   && !decompPolys[decompPolys.size()-2].inside(wPs[0])
+  if ((decompPolys.back().inside(ct_pos, 0) && dis2goal < config.horizon * 0.7) || dis2goal < 0.5 * config.horizon) // if the initial   && !decompPolys[decompPolys.size()-2].inside(wPs[0])
   {
-    cout << "pos in the last polyH: " << decompPolys.back().inside(ct_pos, config.safeMargin) << "  " << dis2goal << endl;
+    cout << "pos in the last polyH: " << decompPolys.back().inside(ct_pos, 0) << "  " << dis2goal << endl;
     return true;
   }
   else
@@ -468,7 +451,6 @@ void TrajectoryGenerator_fast::Traj_opt(const MatrixXd &iniState, const MatrixXd
 
 {
   chrono::high_resolution_clock::time_point tic = chrono::high_resolution_clock::now();
-  SE3GCOPTER nonlinOpt;
   // Trajectory traj;
   //  cout << "received dynamic obs number:" << dynobs_pointer->dyn_number << endl << dynobs_pointer<<endl<<"dyn_timestamp:"<<dynobs_pointer->time_stamp<<endl<<plan_t<<endl;
   ROS_INFO("Begin to optimize the traj~");
@@ -497,7 +479,7 @@ void TrajectoryGenerator_fast::Traj_opt(const MatrixXd &iniState, const MatrixXd
 void TrajectoryGenerator_fast::gen_polyhedrons(vec_Vec3f *obs_pointer)
 {
   chrono::high_resolution_clock::time_point tic = chrono::high_resolution_clock::now();
-  // cout << "gen polyhedrons" <<endl;
+  cout << "gen polyhedrons" <<endl;
   EllipsoidDecomp3D decomp_util(config.global_min, config.global_size);
   // cout << "mk00:" <<obs_pointer->size()<<endl;
   decomp_util.set_obs(*obs_pointer);

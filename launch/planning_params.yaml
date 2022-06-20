@@ -8,7 +8,7 @@
 goal: [-14.0,-14.0,1.3]
 ReturnHome: 2     #the one-way trip number. should >= 2 to active retrun home mode. If = 2, drone fly to the goal and return home.
 if_RandomGoal: true
-if_debug: true
+if_debug: false
 UseRawPcl: false   # if use the camera raw pcl for obstacle avoidance, only for static environment
 CtrlFreq: 150
 ScaleSI:                    1.0
@@ -23,19 +23,19 @@ TotalT:                     0.0
 QdIntervals:                15   #sample number for each segment of the polynomial
 HorizHalfLen:               0.0
 VertHalfLen:                0.0
-SafeMargin:                 0.4
+SafeMargin:                 0.3
 VelMax:                     3.0  # maximal speed for kino-path searching and trajectory optimization. The code will double this max speed 
                                  #constrain (at least to 4 m/s) for trajectory when a ball is detected
 
 PathAccMax:                 6.0  #the max acc used for kino-a-star path search. It should be smaller when VelMax is smaller,
                                  # or the kino-path-searching may often fail because of the small speed constrain VS big acc sampling gap. 
                                  #Some recommended values: VelMax = 0.5//PathAccMax=1.0 ; VelMax = 2.0//PathAccMax=5.0
-ThrustAccMax:               15.0
+ThrustAccMax:               20.0
 BodyRateMax:                1.0
 GravAcc:                    9.81
-PenaltyPVTB:                [60000.0, 50000.0, 10000.0, 10000.0]   #P: convex hull  V: velocity T: thrust  B:body rate
+PenaltyPVTB:                [40000.0, 50000.0, 10000.0, 10000.0]   #P: convex hull  V: velocity T: thrust  B:body rate
 UseC2Diffeo:                true
-OptRelTol:                  1.0e-4
+OptRelTol:                  1.0e-5
 TrajVizWidth:               1.0
 TrajVizRGB:                 [0.8, 0.0, 0.0]
 ifMove:                     true #false #
@@ -48,7 +48,7 @@ YawGapMax:        0.35 #0.7
 #RouteStoragePath:           './data/office_easy_1.txt'
 EllipsoidVizRGBA:           [1.0, 0.0, 1.0, 1.0]
 #QuadrotorPath:              '/misc/data/quadcopter.dae'
-sfck_t: 0.2  #minimum distance or time gap to re-build the SFC, set a reasonable value to prevent computing overload. Smaller value for more dense env.
+sfck_t: 0.3  #minimum distance or time gap to re-build the SFC, set a reasonable value to prevent computing overload. Smaller value for more dense env.
 #kinodynamic path searching
 search/max_tau: 0.5   # time duration for state transition between nodes
 search/init_max_tau: 0.8
@@ -67,7 +67,7 @@ search/check_num: 5  #
 search/optimistic: true
 search/vel_margin: 1.0   # The final maximal speed constrain will be VelMax+vel_margin. You can give a positive number to relax the velocity 
                          #  constrain when the path planning often fails
-search/safety_radius: 0.35
+search/safety_radius: 0.3
 
 # You can see that the acceleration constrain for path planning and the trajectory optimization is not the same. It is a trade off between the computing
 #burden and the searching accuracy. This gap will influence the consistancy when navigating in the dynamic environment, which means the kino-path

@@ -277,9 +277,9 @@ private:
         Eigen::Vector3d ct_center;
         double omg,violaPos,violaPosPenaD,violaPosPena;
         double t_gap,t_now;
-        double wei_dyn = ci(0)*5;
-        double wei_dyn_acc = ci(0)*0.002; //0.0005; //
-        double wei_ball = ci(0)*20;
+        double wei_dyn = ci(0)*6;
+        double wei_dyn_acc = ci(0)*0.0025; //0.0005; //
+        double wei_ball = ci(0)*24;
         int innerLoop,idx;
         constexpr double inv_a2 = 1 / 2.0 / 2.0, inv_b2 = 1.0;
         double inv_x,inv_y,inv_z;
