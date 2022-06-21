@@ -292,7 +292,7 @@ void TrajectoryGenerator_fast::check_wps_in_polyH(void)
   }
 }
 
-bool TrajectoryGenerator_fast::check_polyH_safe(const double plan_t, const MatrixXd &waypoints, Vector3d &start, vec_Vec3f *obs_pointer, dynobs_tmp *dynobs, double start_t,bool path_replan)
+bool TrajectoryGenerator_fast::check_polyH_safe(const double plan_t, const MatrixXd &waypoints, Vector3d &start, vec_Vec3f *obs_pointer, dynobs_tmp *dynobs, double start_t, bool path_replan)
 {
   //  if_config =false;
   dynobs_pointer = dynobs;
@@ -307,7 +307,7 @@ bool TrajectoryGenerator_fast::check_polyH_safe(const double plan_t, const Matri
   pt[1] = start(1);
   pt[2] = start(2);
   total_t = traj.getTotalDuration();
-  
+
   wPs.clear();
   if (waypoints.cols() < 3)
   {
@@ -331,7 +331,7 @@ bool TrajectoryGenerator_fast::check_polyH_safe(const double plan_t, const Matri
   //   else{
   //   cout<<"old corridor is not safe for new waypoints!"<<endl;
   //   }
-  bool in_first_polyh = decompPolys.front().inside(pt, 2*config.safeMargin);
+  bool in_first_polyh = decompPolys.front().inside(pt, 2 * config.safeMargin);
   if (path_replan || !in_first_polyh || (last_check_pos - start).norm() > config.sfck_td || (ros::Time::now() - last_check_time).toSec() > config.sfck_td)
   {
     gen_polyhedrons(obs_pointer);
@@ -339,9 +339,12 @@ bool TrajectoryGenerator_fast::check_polyH_safe(const double plan_t, const Matri
     last_check_time = ros::Time::now();
   }
   // if_config = true;
-  
-  if (path_replan && (traj.getPos(total_t)-wPs.back()).norm() > config.horizon*0.3)
+
+  if (path_replan && (traj.getPos(total_t) - wPs.back()).norm() > config.horizon * 0.3)
+  {
+    cout << "Path replanned, so traj replan. Traj end and goal distance:" <<(traj.getPos(total_t) - wPs.back()).norm()<< endl;
     return false;
+  }
   // if ((path_replan && start_t1 > 0.15*total_t) || start_t1 > 0.4*total_t)
   // return false;
   // if (!in_first_polyh || (traj.getPos(total_t)-wPs.back()).norm() > config.horizon*0.5)
@@ -386,8 +389,9 @@ bool TrajectoryGenerator_fast::check_polyH_safe(const double plan_t, const Matri
       check_sfc_ind += 1;
       if (check_sfc_ind > decompPolys.size() - 1)
       {
-        cout << "old traj SFC check fail! Traj time:" << j<<"\ncheck pos:\n"<<pos<<"\nindex:"<<check_sfc_ind<< endl;
-          last_traj_polyH_check = false;
+        cout << "old traj SFC check fail! Traj time:" << j << "\ncheck pos:\n"
+             << pos << "\nindex:" << check_sfc_ind << endl;
+        last_traj_polyH_check = false;
         return false;
       }
       poly = decompPolys[check_sfc_ind];
@@ -396,7 +400,7 @@ bool TrajectoryGenerator_fast::check_polyH_safe(const double plan_t, const Matri
       // return false;}
     }
   }
-    last_traj_polyH_check = true;
+  last_traj_polyH_check = true;
   cout << "old traj is safe for dyn obs, and all in new corridor!" << endl;
   return true;
 }
@@ -405,7 +409,7 @@ bool TrajectoryGenerator_fast::last_jointPolyH_check(Vector3d ct_pos)
 {
   //  cout << "wPs size: " << wPs.size()<<endl;
   double dis2goal = (wPs.back() - ct_pos).norm();
-  if ((decompPolys.back().inside(ct_pos, 0) && dis2goal < config.horizon * 0.7) || dis2goal < 0.5 * config.horizon) // if the initial   && !decompPolys[decompPolys.size()-2].inside(wPs[0])
+  if ((decompPolys.back().inside(ct_pos, 0) && dis2goal < config.horizon * 0.7) || dis2goal < 0.3 * config.horizon) // if the initial   && !decompPolys[decompPolys.size()-2].inside(wPs[0])
   {
     cout << "pos in the last polyH: " << decompPolys.back().inside(ct_pos, 0) << "  " << dis2goal << endl;
     return true;
@@ -479,7 +483,7 @@ void TrajectoryGenerator_fast::Traj_opt(const MatrixXd &iniState, const MatrixXd
 void TrajectoryGenerator_fast::gen_polyhedrons(vec_Vec3f *obs_pointer)
 {
   chrono::high_resolution_clock::time_point tic = chrono::high_resolution_clock::now();
-  cout << "gen polyhedrons" <<endl;
+  cout << "gen polyhedrons, wPs: " <<wPs.size()<< endl;
   EllipsoidDecomp3D decomp_util(config.global_min, config.global_size);
   // cout << "mk00:" <<obs_pointer->size()<<endl;
   decomp_util.set_obs(*obs_pointer);

@@ -729,28 +729,33 @@ std::vector<Eigen::Vector3d> KinodynamicAstar::getKinoTraj(double delta_t)
 bool KinodynamicAstar::checkOldPath(vector<Eigen::Vector3d> &point_set, Eigen::Vector3d ct_pos)
 {
   bool if_safe = true;
-  int del_id = 0;
+  int del_id = -1;
   if (point_set.size() < 2)
   {
     return false;
   }
-  for (size_t i = 0; i < point_set.size()-1; i++)
+  for (size_t i = 0; i < point_set.size() - 1; i++)
   {
-    if (line_collide(point_set[i], point_set[i+1]))
+    if (line_collide(point_set[i], point_set[i + 1]))
     {
       if_safe = false;
       break;
     }
-    if (i>0 &&  del_id==0 && (point_set[i-1] - ct_pos).squaredNorm()+(point_set[i-1] -point_set.back()).squaredNorm() > (point_set.back() - ct_pos).squaredNorm()
-    && (point_set[i] - ct_pos).squaredNorm()+(point_set[i] -point_set.back()).squaredNorm() <(point_set.back() - ct_pos).squaredNorm())
-    del_id = i;
+    if ((point_set[i] - ct_pos).squaredNorm() + (point_set[i] - point_set.back()).squaredNorm() > (point_set.back() - ct_pos).squaredNorm())
+      // && (point_set[i + 1] - ct_pos).squaredNorm() + (point_set[i + 1] - point_set.back()).squaredNorm() < (point_set.back() - ct_pos).squaredNorm())
+      del_id = i;
   }
-  // ct_pos - 
-  if (del_id>0)
+  // ct_pos -
+  if (if_safe)
   {
-  Eigen::Vector3d new_start = point_set[del_id-1] + (point_set[del_id] - point_set[del_id-1]) * (ct_pos - point_set[del_id-1]).norm()/(point_set[del_id] - point_set[del_id-1]).norm();
-  point_set.erase(point_set.begin(),point_set.begin()+del_id);
-  point_set.insert(point_set.begin(),new_start);
+    del_id = max(1, del_id + 1);
+    double  rate = (ct_pos - point_set[del_id - 1]).dot(point_set[del_id] - point_set[del_id - 1])/ (point_set[del_id] - point_set[del_id - 1]).squaredNorm();
+    Eigen::Vector3d new_start = point_set[del_id - 1] + (point_set[del_id] - point_set[del_id - 1]) *rate;
+    point_set.erase(point_set.begin(), point_set.begin() + del_id);
+    if (point_set.size() == 1)
+      point_set.insert(point_set.begin(), ct_pos);
+    else
+      point_set.insert(point_set.begin(), new_start);
   }
   if (!if_safe)
     cout << "A* safety check not safe! " << endl;

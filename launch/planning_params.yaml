@@ -23,7 +23,7 @@ TotalT:                     0.0
 QdIntervals:                15   #sample number for each segment of the polynomial
 HorizHalfLen:               0.0
 VertHalfLen:                0.0
-SafeMargin:                 0.3
+SafeMargin:                 0.25
 VelMax:                     3.0  # maximal speed for kino-path searching and trajectory optimization. The code will double this max speed 
                                  #constrain (at least to 4 m/s) for trajectory when a ball is detected
 
@@ -35,7 +35,7 @@ BodyRateMax:                1.0
 GravAcc:                    9.81
 PenaltyPVTB:                [40000.0, 50000.0, 10000.0, 10000.0]   #P: convex hull  V: velocity T: thrust  B:body rate
 UseC2Diffeo:                true
-OptRelTol:                  1.0e-5
+OptRelTol:                  1.0e-3
 TrajVizWidth:               1.0
 TrajVizRGB:                 [0.8, 0.0, 0.0]
 ifMove:                     true #false #
@@ -67,7 +67,7 @@ search/check_num: 5  #
 search/optimistic: true
 search/vel_margin: 1.0   # The final maximal speed constrain will be VelMax+vel_margin. You can give a positive number to relax the velocity 
                          #  constrain when the path planning often fails
-search/safety_radius: 0.3
+search/safety_radius: 0.25
 
 # You can see that the acceleration constrain for path planning and the trajectory optimization is not the same. It is a trade off between the computing
 #burden and the searching accuracy. This gap will influence the consistancy when navigating in the dynamic environment, which means the kino-path
