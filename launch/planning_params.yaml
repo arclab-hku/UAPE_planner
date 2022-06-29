@@ -10,6 +10,7 @@ ReturnHome: 2     #the one-way trip number. should >= 2 to active retrun home mo
 if_RandomGoal: true
 if_debug: false
 UseRawPcl: false   # if use the camera raw pcl for obstacle avoidance, only for static environment
+UseRawDepth: false
 CtrlFreq: 150
 ScaleSI:                    1.0
 MapHeight:                  3.0

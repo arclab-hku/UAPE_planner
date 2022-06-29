@@ -53,6 +53,7 @@ class Listener
         Vector3d camera_mt;
         // Vector3d camera_mt(0.07,0,0.065);
         Matrix3d Cam_mt;
+        double fx,fy,cx,cy;
     public:
         // mavros states
         mavros_msgs::State flight_state;
@@ -98,5 +99,6 @@ class Listener
         void odomCb(const nav_msgs::Odometry::ConstPtr & msg);
         void triggerCb(const geometry_msgs::PoseStamped::ConstPtr & msg);
         void ballCb(const obj_state_msgs::ObjectsStates::ConstPtr & msg);
+        void depthCb(const sensor_msgs::Image::ConstPtr & msg);
 
 };

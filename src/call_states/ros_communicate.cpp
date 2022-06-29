@@ -2,10 +2,13 @@
 This code includes all communication classes to MAVROS.
 */
 #include <call_states/ros_communicate.h>
+#include <cv_bridge/cv_bridge.h>
 void Listener::init()
 {
-        camera_mt = {0.12,0,0};
+        // camera_mt = {0.12,0,0};  //for sim
+        camera_mt = {0.06,0,0.046};   //for hardware
         Cam_mt<<0,0,1,-1,0,0,0,-1,0;
+        fx = 382.7880554199219; cx = 319.20953369140625; fy = 382.7880554199219; cy = 242.66583251953125;
 }
 void Listener::stateCb(const mavros_msgs::State::ConstPtr& msg)
 {
@@ -258,12 +261,60 @@ void Listener::obsCb(const sensor_msgs::PointCloud2::ConstPtr & msg)
     // if (dynobs.dyn_number>0)
 //    cout << "point cloud received, dynamic number: " <<  cloud.points.back().x << "pcl size:" <<cloud.points.size()<<"accs:\n"<<dynobs.max_accs[0]<<endl;
 }
+void Listener::depthCb(const sensor_msgs::Image::ConstPtr & msg)   //for onboard computer with a CPU too weak to generate pointcloud
+{
+    int w,h,d;
+    double x, y, z;
+    cv::Mat depthImgCopy_;
+    ros::spinOnce();
+    cv_bridge::CvImagePtr cv_ptr;
+    try
+    {
+      cv_ptr = cv_bridge::toCvCopy(msg, msg->encoding);
+      w = cv_ptr->image.cols;
+      h = cv_ptr->image.rows;
+      depthImgCopy_ = cv_ptr->image.clone();
+    }
+    catch (cv_bridge::Exception& e)
+    {
+      ROS_ERROR("cv_bridge exception: %s", e.what());
+      return;
+    }
+    // cout<<"1111"<<endl;
+    obs.clear();
+    // obs.resize(cloud.points.size());
+    dynobs.dyn_number = 0;
+    if (Rota.sum() ==0)
+    return;
+   
+    for (int i=0;i<w;i+=10)
+    {
+    for (int j=0;j<h;j+=10)
+    {
+    d = depthImgCopy_.at<ushort>(j, i);
+    // cout<<"d"<<d<<endl;
+	 if(d>300 && d<8000)
+	  {
+            z = d * 0.001;
+	    x = (i - cx) * z /fx;
+	    y = (j - cy) * z /fy;
+	    
+    obs.emplace_back(x, y, z);
+    obs.back() =  Rota*(Cam_mt*obs.back()+camera_mt) + P_E;
+
+	  }
+
+    }
+    }
+    if (obs.size()>0)
+        pcl_update = true;
+//   cout<<"end!!!!!"<<obs.size()<<endl;  
+}
 void Listener::pclCb(const sensor_msgs::PointCloud2::ConstPtr & msg)
 {   
 
     ros::spinOnce();
     sensor_msgs::PointCloud cloud;
-
     sensor_msgs::convertPointCloud2ToPointCloud(*msg,cloud);
     // cout<<"convert!\n"<<cloud.points.size()<<"\n"<<P_E<< endl;
 
@@ -274,7 +325,7 @@ void Listener::pclCb(const sensor_msgs::PointCloud2::ConstPtr & msg)
     if (cloud.points.size() == 0 || Rota.sum() ==0)
     return;
     pcl_update = true;
-    int step = cloud.points.size()/2000;
+    int step = (1,cloud.points.size()/2000);
     step = (step<1)?1:step;
     // cout<<"Rota:\n"<<Rota<<endl<<Cam_mt<<endl;
     for (int i=0; i<cloud.points.size();i+=step)
@@ -284,11 +335,9 @@ void Listener::pclCb(const sensor_msgs::PointCloud2::ConstPtr & msg)
     obs.emplace_back(cloud.points[i].x, cloud.points[i].y, cloud.points[i].z);
     // obs[i](1) = point.y;
     // obs[i](2) = point.z;
-    
     obs.back() =  Rota*(Cam_mt*obs.back()+camera_mt) + P_E;
     // cout<<"point:\n"<<obs.size()<<endl<<obs.back()<<endl;
     }
-       
 }
 void  Listener::ballCb(const obj_state_msgs::ObjectsStates::ConstPtr & msg)
 {   
@@ -324,7 +373,6 @@ void  Listener::ballCb(const obj_state_msgs::ObjectsStates::ConstPtr & msg)
     dynobs.ball_sizes[i](2) = 0.6;
     // cout << "ball received,  number: " <<  dynobs.ball_number << "   ball pos:  " <<dynobs.ballpos[i]<<endl;
     }
-    
 }
 /*
 FCU Modes Requests

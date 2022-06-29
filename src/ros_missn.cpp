@@ -1,6 +1,6 @@
 #include <ros_missn.h>
 
-RosClass::RosClass(ros::NodeHandle* nodehandle, int FREQ, bool if_raw_pcl):
+RosClass::RosClass(ros::NodeHandle* nodehandle, int FREQ, bool if_raw_pcl, bool if_raw_dpmap):
         nh_(*nodehandle), 
         rate(FREQ)
 {
@@ -17,7 +17,13 @@ RosClass::RosClass(ros::NodeHandle* nodehandle, int FREQ, bool if_raw_pcl):
     obs_sub_ = nh_.subscribe<sensor_msgs::PointCloud2>("/points_global_all", 1, &Listener::obsCb, &listener_);
     static_pcl_sub_ = nh_.subscribe<sensor_msgs::PointCloud2>("/points_global_static", 1, &Listener::static_pcl_Cb, &listener_);
     if (if_raw_pcl)
+    {
         raw_pcl_sub_ = nh_.subscribe<sensor_msgs::PointCloud2>("/camera/depth/color/points", 1, &Listener::pclCb, &listener_);
+    }
+    if (if_raw_dpmap)
+    {
+        depth_sub_ = nh_.subscribe<sensor_msgs::Image>("/camera/depth/image_rect_raw1111", 1, &Listener::depthCb, &listener_);
+    }
     odom_sub_ = nh_.subscribe<nav_msgs::Odometry>("/vicon_imu_ekf_odom", 1, &Listener::odomCb, &listener_);
     traj_start_trigger_sub_ = nh_.subscribe<geometry_msgs::PoseStamped>("/traj_start_trigger", 10, &Listener::triggerCb, &listener_);
     ball_sub_ = nh_.subscribe<obj_state_msgs::ObjectsStates>("/objects_states", 1, &Listener::ballCb, &listener_);
