@@ -54,6 +54,7 @@ void TrajectoryGenerator_fast::replan_traj(Vector3d &start, Vector3d &vi, Vector
   finState.col(2) = Vector3d::Zero(3);
   // check_wps_in_polyH();
   Traj_opt(iniState, finState, plan_t);
+  if (config.yawplan)
   Yaw_plan(camera_vertex, plan_t);
 }
 
@@ -216,7 +217,7 @@ Vector2d TrajectoryGenerator_fast::getYaw(double t)
   int indx = t / delta_t_yaw;
   Vector2d desire_yaw; // yaw,yaw_rate
   double yaw_gap;
-  if (indx + 1 > yaw_plan.size() - 1)
+  if (indx + 1 > yaw_plan.size() - 1 || !config.yawplan)
   {
     Vector2d v1, v2;
     v1 << 1.0, 0.0;
@@ -300,7 +301,7 @@ bool TrajectoryGenerator_fast::check_polyH_safe(const double plan_t, const Matri
   double start_t1 = start_t - plan_t;
   //  check_sfc_ind = 0;
   Vector3d pos;
-  double dt = 0.025;
+  double dt = 0.02;
   Polyhedron3D poly;
   Vec3f pt;
   pt[0] = start(0);
@@ -363,7 +364,7 @@ bool TrajectoryGenerator_fast::check_polyH_safe(const double plan_t, const Matri
   {
     // cout<<"(in func) check traj safe:\n"<<j<<endl<<total_t<<endl;
     pos = traj.getPos(j);
-    if (!dyn_safe_check(pos, j + start_t))
+    if (!dyn_safe_check(pos, j + start_t - start_t1))
     {
       cout << "dyn check fail!  " << dynobs_pointer->dyn_number << endl; // dynobs_pointer->ballvel[0]<<endl
       return false;
@@ -401,7 +402,7 @@ bool TrajectoryGenerator_fast::check_polyH_safe(const double plan_t, const Matri
     }
   }
   last_traj_polyH_check = true;
-  cout << "old traj is safe for dyn obs, and all in new corridor!" << endl;
+  cout << "old traj is safe for dyn obs, and all in new corridor! " << dynobs_pointer->dyn_number <<" "<<ros::Time::now().toSec() - dynobs_pointer->time_stamp << endl;
   return true;
 }
 

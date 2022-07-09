@@ -209,7 +209,7 @@ States RosClass::step(double double_n,double  yaw_rate, Vector3d pos,Vector3d ve
         pos_target.header.stamp = ros::Time::now();
 
         pos_target.yaw = double_n;
-        pos_target.yaw_dot = yaw_rate;
+        // pos_target.yaw_dot = yaw_rate;
         geometry_msgs::Point pos1;
         pos1.x = pos(0);
         pos1.y = pos(1);

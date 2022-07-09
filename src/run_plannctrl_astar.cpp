@@ -56,6 +56,7 @@ int main(int argc, char **argv)
   bool last_if_reach = false;
   double gap;
   double singlestep_time;
+
   int return_home = 0;
   bool if_raw_pcl = false; // if directly use the raw point cloud from sensor
   bool if_depth_img = false;
@@ -74,6 +75,7 @@ int main(int argc, char **argv)
   nh.getParam("UseRawDepth",  if_depth_img);
 
   nh.getParam("ReturnHome", return_home);
+  
 
   ros::Rate loop_rate(CtrlFreq);
   camera_vertex_b.col(0) << 0, 0, 0;
@@ -95,7 +97,7 @@ int main(int argc, char **argv)
   bool if_end = false;
   bool if_safe = true;
   bool ball_time_out = false;
-  double ball_pass_time = 1.0;
+  double ball_pass_time = 2.0;
   double min_dist2dynobs = 1e6;
   double tmp_dist, t_gap_ball;
   double timee = 0;
@@ -131,7 +133,7 @@ int main(int argc, char **argv)
   while (nh.ok()) // main loop
   {
     // dis_goal = dis_goal_ini-0.5;
-    tem_dis_goal = dis_goal;
+    
     path_replan = false;
     if ((return_home > 0 && if_end) || (if_rand && (if_end || (rand_num < 0)))) // choose goal randomly at the global bounding box boundary
     {
@@ -189,6 +191,7 @@ int main(int argc, char **argv)
       if_initial = true;
       if_reach = false;
       waypoints.clear();
+      flying.dynobs_pointer->dyn_number = 0;
       Vector2d v2 = (g_goal - state.P_E).head(2);
       Vector2d v1;
       v1 << 1.0, 0.0;
@@ -197,11 +200,15 @@ int main(int argc, char **argv)
       {
         desire_yaw = -desire_yaw;
       }
+      ct_pos = state.P_E;
       double yaw_rate = abs(desire_yaw - state.Euler(2))>3.14159?-sign(desire_yaw - state.Euler(2))*0.6:sign(desire_yaw - state.Euler(2))*0.6;
+      ros::Duration(1).sleep();
       do
       {
-        state = flying.step(state.Euler(2) + yaw_rate*0.5, yaw_rate, state.P_E, Vector3d::Zero(3), Vector3d::Zero(3), "pos_vel_acc_yaw_c");
+        state = flying.step(state.Euler(2) + yaw_rate*0.5, yaw_rate, ct_pos, Vector3d::Zero(3), Vector3d::Zero(3), "pos_vel_acc_yaw_c");
+        ros::Duration(0.05).sleep();
       } while (abs(state.Euler(2) - desire_yaw) > 0.3);
+      ros::Duration(0.5).sleep();
     }
 
     // ros::Time t1 = ros::Time::now();
@@ -263,8 +270,10 @@ int main(int argc, char **argv)
       if (if_initial || !ifMove)
       {
         ct_pos = state.P_E;
-        ct_vel = state.V_E;
-        ct_acc = state.A_E;
+        // ct_vel = state.V_E;
+        // ct_acc = state.A_E;
+        ct_vel.setZero();
+        ct_acc.setZero();
       }
       else
       {
@@ -278,6 +287,7 @@ int main(int argc, char **argv)
       // cout<<"if initial: "<<if_initial<<endl;
       camera_vertex = (state.Rota * camera_vertex_b).array().colwise() + state.P_E.array();
       double dis2goal = (g_goal - ct_pos).norm();
+     tem_dis_goal = dis2goal;
       if (dis2goal > 1.0 && flying.obs_pointer->size() > 0) // && !if_initial
       {
 
@@ -288,7 +298,7 @@ int main(int argc, char **argv)
         kino_path_finder_->setEnvironment(flying.obs_pointer, flying.dynobs_pointer, camera_vertex, gbbox_o, gbbox_l);
         if (!kino_path_finder_->checkOldPath(waypoints, ct_pos) || (reference.last_jointPolyH_check(ct_pos) && !if_reach))
         {
-          //  cout << "Ready to search" <<endl;
+           cout << "Ready to search" <<endl;
 
           if (dis2goal > dis_goal)
           {
@@ -308,7 +318,7 @@ int main(int argc, char **argv)
             cout << "[kino replan]: Goal occluded:\n"
                  << goal << endl;
             tem_dis_goal -= 0.3;
-            goal = ct_pos + (g_goal - ct_pos) / dis2goal * tem_dis_goal;
+            goal = ct_pos + (g_goal - ct_pos).normalized() * tem_dis_goal;
             if (if_reach)
               g_goal = goal;
             if ((goal - state.P_E).norm() < 0.5 || tem_dis_goal < 0.5)
@@ -367,7 +377,10 @@ int main(int argc, char **argv)
       // cout<<"waypoints: \n"<<waypoints_m<<endl;
       if (!if_initial)
       {
+       if (ifMove)
         if_safe = reference.check_polyH_safe(traj_last_t.toSec(), waypoints_m, ct_pos, flying.obs_pointer, flying.dynobs_pointer, ros::Time::now().toSec(), path_replan);
+       else
+        if_safe = reference.check_polyH_safe(ros::Time::now().toSec(), waypoints_m, ct_pos, flying.obs_pointer, flying.dynobs_pointer, ros::Time::now().toSec(), path_replan);
       }
       // cout << "corridor update, check safety result:" << if_safe <<endl;
       if (if_debug)

@@ -634,7 +634,7 @@ inline bool KinodynamicAstar::checkSafety(const Eigen::Vector3d &query_pt, const
   // cout << "kd tree result:"<<dist_sqr<<"---"<<nearest_index<<"---"<<S_r<<"\n"<<pcPtr_->pts->at(nearest_index) <<endl<<query_pt<<endl;
   if (current_time < -2)
   {
-    return (dist_sqr > 4 * S_r) && (query_pt(2) + S_r < glbox_o_[2] + glbox_l_[2]) && (query_pt(2) - S_r > glbox_o_[2]) && (query_pt(1) + S_r < glbox_o_[1] + glbox_l_[1]) && (query_pt(1) - S_r > glbox_o_[1]) && (query_pt(0) + S_r < glbox_o_[0] + glbox_l_[0]) && (query_pt(0) - S_r > glbox_o_[0]);
+    return (dist_sqr > 1 * S_r) && (query_pt(2) + S_r < glbox_o_[2] + glbox_l_[2]) && (query_pt(2) - S_r > glbox_o_[2]) && (query_pt(1) + S_r < glbox_o_[1] + glbox_l_[1]) && (query_pt(1) - S_r > glbox_o_[1]) && (query_pt(0) + S_r < glbox_o_[0] + glbox_l_[0]) && (query_pt(0) - S_r > glbox_o_[0]);
   }
   else if (current_time < 0 || dynobs_pointer_->dyn_number == 0)
   {

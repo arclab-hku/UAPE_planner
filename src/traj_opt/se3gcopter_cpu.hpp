@@ -236,8 +236,8 @@ private:
         else{
             vMaxSqr = vMax * vMax*8;}
          }
-        // else if (dynobs_pointer->dyn_number >0)
-        // {vMaxSqr = vMax * vMax*2;}
+        else if (dynobs_pointer->dyn_number >0)
+         {vMaxSqr = vMax * vMax*1.9;}
         else{vMaxSqr = vMax * vMax;}
         
         const double thrAccMinSqr = thrAccMin * thrAccMin;

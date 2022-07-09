@@ -191,6 +191,7 @@ void  Listener::objCb(const obj_state_msgs::ObjectsStates::ConstPtr & msg)
     dynobs.vels.clear();
     dynobs.max_accs.clear();
     dynobs.obs_sizes.clear();
+    cout<<"time gap from obj to now: "<<(ros::Time::now().toSec() - dynobs.time_stamp)<<endl;
     // dynobs.centers.resize(dynobs.dyn_number);
     // dynobs.vels.resize(dynobs.dyn_number);
     // dynobs.obs_sizes.resize(dynobs.dyn_number);

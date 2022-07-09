@@ -48,6 +48,7 @@ struct Config
     double yaw_w = 0.4;
     double yaw_gap_max = 0.55;
     double horizon = 8.0;
+    bool yawplan = false;
     inline void loadParameters(const ros::NodeHandle &nh_priv)
     // {       cout << "mk3" << endl;
     {
@@ -57,6 +58,7 @@ struct Config
         // packagePath += packagePath.back() == '/' ? "" : "/";
         // string packageUrl = "package://plan_manage/";
         //   nh_priv.getParam("OdomFrame", odomFrame);
+        nh_priv.getParam("Yawplan", yawplan);
         nh_priv.getParam("MaxYawRange", max_yaw_range);
         nh_priv.getParam("YawGapWeight", yaw_w);
         nh_priv.getParam("YawGapMax", yaw_gap_max);
