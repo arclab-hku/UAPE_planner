@@ -459,10 +459,15 @@ void TrajectoryGenerator_fast::Traj_opt(const MatrixXd &iniState, const MatrixXd
   // Trajectory traj;
   //  cout << "received dynamic obs number:" << dynobs_pointer->dyn_number << endl << dynobs_pointer<<endl<<"dyn_timestamp:"<<dynobs_pointer->time_stamp<<endl<<plan_t<<endl;
   ROS_INFO("Begin to optimize the traj~");
+  // double vel_max;
   // cout << "final state in use:" << endl << finState.col(0) << endl;
+  // if (dynobs_pointer->dyn_number >0 && config.velMax<2.0)
+  // {
+  //   vel_max
+  // }
   if (!nonlinOpt.setup(config.rho, config.totalT, iniState, finState, hPolys, INFINITY,
                        config.qdIntervals, config.horizHalfLen, config.vertHalfLen,
-                       config.safeMargin, config.velMax, config.thrustAccMin, config.thrustAccMax,
+                       config.safeMargin, (dynobs_pointer->dyn_number >0 && config.velMax<2.0)?2.0:config.velMax, config.thrustAccMin, config.thrustAccMax,
                        config.bodyRateMax, config.gravAcc, config.penaltyPVTB, config.useC2Diffeo, plan_t, dynobs_pointer))
   {
     ROS_INFO("gcopter initialize fail!");

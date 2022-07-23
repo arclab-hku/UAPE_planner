@@ -287,7 +287,7 @@ int main(int argc, char **argv)
       // cout<<"if initial: "<<if_initial<<endl;
       camera_vertex = (state.Rota * camera_vertex_b).array().colwise() + state.P_E.array();
       double dis2goal = (g_goal - ct_pos).norm();
-     tem_dis_goal = dis2goal;
+
       if (dis2goal > 1.0 && flying.obs_pointer->size() > 0) // && !if_initial
       {
 
@@ -304,11 +304,13 @@ int main(int argc, char **argv)
           {
             goal = ct_pos + (g_goal - ct_pos) / dis2goal * dis_goal;
             if_reach = false;
+            tem_dis_goal = dis_goal;
           }
           else
           {
             goal = g_goal;
             if_reach = true;
+                 tem_dis_goal = dis2goal;
           }
           kino_path_finder_->reset();
           status = kino_path_finder_->search(ct_pos, ct_vel, ct_acc, goal, end_state, true);
@@ -462,6 +464,12 @@ int main(int argc, char **argv)
       v_d.setZero();
       a_d.setZero();
       if_end = true;
+      for (int counter = 0;counter<20;counter++)
+      {
+        state = flying.step(desire_psi[0], desire_psi[1], p_d, v_d, a_d, "pos_vel_acc_yaw_c");
+        ros::Duration(0.05).sleep();
+      }
+      
     }
 
     if (ifMove)

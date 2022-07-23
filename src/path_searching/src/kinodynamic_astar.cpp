@@ -833,7 +833,7 @@ void KinodynamicAstar::getSamples(double ts, vector<Eigen::Vector3d> &point_set,
         coord(dim) = poly1d.dot(time);
       }
       // cout<<"coord and last wpt:\n"<<coord<<"\n"<<point_set.back()<<endl;
-      if (line_collide(coord, point_set.back()))
+      if (ti<T_sum - ts-1e-3 && line_collide(coord, point_set.back()))
         point_set.push_back(last_pos);
       else if (ti < ts && (point_set.back() - coord).norm() > 0.3)
         point_set.push_back(coord);
@@ -859,7 +859,7 @@ void KinodynamicAstar::getSamples(double ts, vector<Eigen::Vector3d> &point_set,
       coord = xt.head(3);
       // cout << "return node:"<<xt.head(3)<<endl;
       //  cout<<"coord and last wpt:\n"<<coord<<"\n"<<point_set.back()<<endl;
-      if (line_collide(coord, point_set.back()))
+      if (ti<T_sum - ts-1e-3 && line_collide(coord, point_set.back()))
         point_set.push_back(last_pos);
       else if (ti < ts && (point_set.back() - coord).norm() > 0.3)
         point_set.push_back(coord);

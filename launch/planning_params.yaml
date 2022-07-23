@@ -7,7 +7,7 @@
 # goal: [13.0,13.0,1.3]
 goal: [6.6,0.0,1.5]
 ReturnHome: 4     #the one-way trip number. should >= 2 to active retrun home mode. If = 2, drone fly to the goal and return home.
-if_RandomGoal: false
+if_RandomGoal: true
 if_debug: false
 UseRawPcl: false   # if use the camera raw pcl for obstacle avoidance, only for static environment
 UseRawDepth: false
@@ -17,19 +17,19 @@ MapHeight:                  3.0
 PolyhedronBox:              [6.0, 6.0, 3.2]  # the size constriants for a single polyhedron generated from one path segment. number1: 
                                              #offset along the path, number2: offset perdenticular to path, in the floor plane. 
                                              #number 3: offset perdenticular to path, in the verticle plane.
-GlobalBox_min:              [-15.0, -3.5, 0.2]  #global box constraint. The lower bound for all polyhedrons.
-GlobalBox_size:             [30.0, 7.0, 2.5]    #global box size, the allowed vehicle moving range is : GlobalBox_min->GlobalBox_min+GlobalBox_size
+GlobalBox_min:              [-15.0, -15, 0.2]  #global box constraint. The lower bound for all polyhedrons.
+GlobalBox_size:             [30.0, 30.0, 2.0]    #global box size, the allowed vehicle moving range is : GlobalBox_min->GlobalBox_min+GlobalBox_size
 Rho:                        100.0
 TotalT:                     0.0
 QdIntervals:                15   #sample number for each segment of the polynomial
 HorizHalfLen:               0.0
 VertHalfLen:                0.0
 SafeMargin:                 0.3  #0.25 for static hardware test
-VelMax:                     1.3  # maximal speed for kino-path searching and trajectory optimization. The code will double this max speed 
+VelMax:                     1.5  # maximal speed for kino-path searching and trajectory optimization. The code will double this max speed 
                                  #constrain (at least to 4 m/s) for trajectory when a ball is detected
 
 PathAccMax:                 6.0  #the max acc used for kino-a-star path search. It should be smaller when VelMax is smaller,
-                                 # or the kino-path-searching may often fail because of the small speed constrain VS big acc sampling gap. 
+                                 # or the kino-path-searching may often fail because of the small speed constrain VS big acc sampling gap. It is a trade off between the computing burden and the searching accuracy. 
                                  #Some recommended values: VelMax = 0.5//PathAccMax=1.0 ; VelMax = 2.0//PathAccMax=5.0
 ThrustAccMax:               16.0
 BodyRateMax:                1.0
@@ -73,7 +73,4 @@ search/vel_margin: 1.0   # The final maximal speed constrain will be VelMax+vel_
                          #  constrain when the path planning often fails
 search/safety_radius: 0.25
 
-# You can see that the acceleration constrain for path planning and the trajectory optimization is not the same. It is a trade off between the computing
-#burden and the searching accuracy. This gap will influence the consistancy when navigating in the dynamic environment, which means the kino-path
-#will differs more from the final trajectory, and the final acceleratino cost of the traj may be greater. However, this will not influence the 
-#safety, and the actual kinodynamic limits are respected in the trajectory optimization part.
+# You can see that the acceleration constrain for path planning and the trajectory optimization is not the same. ThrustAccMax is the thrust acceleration, obtained from MaxThrustForce/vehicleMass. PathAccMax is the accleration limit of the kinopath for each x-y-z axis.
