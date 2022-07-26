@@ -15,6 +15,7 @@
 #include <geometry_msgs/TwistStamped.h>
 #include <mavros_msgs/CommandBool.h> //services
 #include <mavros_msgs/CommandTOL.h>
+#include <mavros_msgs/RCIn.h>
 #include <mavros_msgs/SetMode.h>
 #include <visualization_msgs/MarkerArray.h>
 #include <visualization_msgs/Marker.h>
@@ -58,7 +59,7 @@ class Listener
         // mavros states
         mavros_msgs::State flight_state;
         mavros_msgs::ExtendedState flight_estate;
-        
+
         // local position
         //// linear states
         Vector3d P_E, V_E;
@@ -100,5 +101,5 @@ class Listener
         void triggerCb(const geometry_msgs::PoseStamped::ConstPtr & msg);
         void ballCb(const obj_state_msgs::ObjectsStates::ConstPtr & msg);
         void depthCb(const sensor_msgs::Image::ConstPtr & msg);
-
+        // void rcCb(const mavros_msgs::RCInConstPtr & inMsg);
 };

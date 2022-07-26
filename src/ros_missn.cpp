@@ -6,6 +6,7 @@ RosClass::RosClass(ros::NodeHandle* nodehandle, int FREQ, bool if_raw_pcl, bool 
 {
     // subscribers
     //// mavros states
+    rc_sub_ = nh_.subscribe<mavros_msgs::RCIn>("/mavros/rc/in", 10,&RC_Data_t::feed, &rc_data);
     state_sub_ = nh_.subscribe<mavros_msgs::State>("/mavros/state", 10, &Listener::stateCb, &listener_);
     exstate_sub_ = nh_.subscribe<mavros_msgs::ExtendedState>("/mavros/extended_state", 10, &Listener::estateCb, &listener_);
     //// control states

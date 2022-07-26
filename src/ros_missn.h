@@ -18,6 +18,7 @@
 #include <mavros_msgs/CommandBool.h> //services
 #include <mavros_msgs/CommandTOL.h>
 #include <mavros_msgs/SetMode.h>
+#include <mavros_msgs/RCIn.h>
 #include <geometry_msgs/Point.h>
 #include <geometry_msgs/Vector3.h>
 #include <call_states/ros_communicate.h>
@@ -31,6 +32,7 @@
 #include<traj_opt/se3_planner.h>
 #include<quadrotor_msgs/PositionCommand.h>
 #include<obj_state_msgs/ObjectsStates.h>
+#include "input.h"
 using namespace std;
 using namespace Eigen;
 
@@ -48,11 +50,17 @@ using namespace Eigen;
 */
 class RosClass
 {
+    public:
+            RC_Data_t rc_data;
     private:
         // ros
         ros::NodeHandle nh_;
-        ros::Subscriber state_sub_, exstate_sub_, pos_sub_, vel_sub_, imu_sub_,corridor_sub_,wpts_sub_,obs_sub_,odom_sub_,traj_start_trigger_sub_,ball_sub_,raw_pcl_sub_,static_pcl_sub_,obj_sub_,depth_sub_;
-        ros::Publisher pos_pub_, raw_pub_, actuCtrl_pub_,traj_pub_,detail_traj_pub_,polyh_pub_,path_pub_,poscmd_pub_,cam_vispub_,ball_vispub_, cam_listpub_;
+        ros::Subscriber state_sub_, exstate_sub_, pos_sub_, vel_sub_, imu_sub_,corridor_sub_,wpts_sub_,obs_sub_,
+        odom_sub_,traj_start_trigger_sub_,ball_sub_,raw_pcl_sub_,static_pcl_sub_,obj_sub_,depth_sub_,rc_sub_;
+
+        ros::Publisher pos_pub_, raw_pub_, actuCtrl_pub_,traj_pub_,detail_traj_pub_,polyh_pub_,path_pub_,
+        poscmd_pub_,cam_vispub_,ball_vispub_, cam_listpub_;
+
         ros::ServiceClient arming_client_, land_client_, set_mode_client_;
         ros::Rate rate;
 
@@ -82,7 +90,6 @@ class RosClass
         Vector3d Start, End;
         vec_Vec3f *obs_pointer;
         dynobs_tmp *dynobs_pointer;
-
         bool done;
         Matrix3d RCtrl;
         MatrixXd waypoints;

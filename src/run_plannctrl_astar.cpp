@@ -56,7 +56,7 @@ int main(int argc, char **argv)
   bool last_if_reach = false;
   double gap;
   double singlestep_time;
-
+  bool rc_goal = false;
   int return_home = 0;
   bool if_raw_pcl = false; // if directly use the raw point cloud from sensor
   bool if_depth_img = false;
@@ -75,6 +75,7 @@ int main(int argc, char **argv)
   nh.getParam("UseRawDepth",  if_depth_img);
 
   nh.getParam("ReturnHome", return_home);
+  nh.getParam("UseRcGuide", rc_goal);
   
 
   ros::Rate loop_rate(CtrlFreq);
@@ -92,6 +93,7 @@ int main(int argc, char **argv)
   // dis_goal = dis_goal_ini-0.5;
   Eigen::Vector3d g_goal = {goalp[0], goalp[1], goalp[2]};
   Eigen::Vector3d goal = g_goal;
+  Eigen::Vector3d local_goal = {0,0,0};
   Eigen::Vector3d initial_goal = g_goal;
   bool if_initial = true;
   bool if_end = false;
@@ -209,6 +211,57 @@ int main(int argc, char **argv)
         ros::Duration(0.05).sleep();
       } while (abs(state.Euler(2) - desire_yaw) > 0.3);
       ros::Duration(0.5).sleep();
+    }
+    else if (rc_goal)
+    {
+      // state = flying.get_state();
+     local_goal = {flying.rc_data.ch[1],flying.rc_data.ch[0],clip(flying.rc_data.ch[3],-0.3,0.3)};
+     ct_pos = state.P_E;
+     double yaw_fix = state.Euler(2);
+     while ((local_goal * dis_goal).norm() < 0.5)
+      {
+        state = flying.step(yaw_fix, 0, ct_pos, Vector3d::Zero(3), Vector3d::Zero(3), "pos_vel_acc_yaw_c");
+        local_goal = {flying.rc_data.ch[1],flying.rc_data.ch[0],0};
+        ros::Duration(0.1).sleep();
+      if_end = false;
+      if_initial = true;
+      if_reach = false;
+      waypoints.clear();
+      flying.dynobs_pointer->dyn_number = 0;
+        cout<<"RC hover"<<endl;
+      }
+
+     while ((local_goal * dis_goal).norm() < 2.0)
+      {
+        state = flying.step(yaw_fix, 0, state.P_E + local_goal, Vector3d::Zero(3), Vector3d::Zero(3), "pos_vel_acc_yaw_c");
+        local_goal = {flying.rc_data.ch[1],flying.rc_data.ch[0],clip(flying.rc_data.ch[3],-0.3,0.3)};
+        ros::Duration(0.1).sleep();
+      if_end = false;
+      if_initial = true;
+      if_reach = false;
+      waypoints.clear();
+      flying.dynobs_pointer->dyn_number = 0;
+        cout<<"RC move"<<endl;
+      }
+
+     g_goal = state.P_E + local_goal * dis_goal;
+     goal = g_goal;
+      Vector2d v2 = (g_goal - state.P_E).head(2);
+      Vector2d v1;
+      v1 << 1.0, 0.0;
+      double desire_yaw = acos(v1.dot(v2) / (v1.norm() * v2.norm()));
+      if (v2(1) < 0)
+      {
+        desire_yaw = -desire_yaw;
+      }
+           ct_pos = state.P_E;
+double yaw_rate = abs(desire_yaw - state.Euler(2))>3.14159?-sign(desire_yaw - state.Euler(2))*0.6:sign(desire_yaw - state.Euler(2))*0.6;
+      while (abs(state.Euler(2) - desire_yaw) > 0.3 && if_initial);
+      {
+        state = flying.step(state.Euler(2) + yaw_rate*0.5, yaw_rate, ct_pos, Vector3d::Zero(3), Vector3d::Zero(3), "pos_vel_acc_yaw_c");
+        ros::Duration(0.05).sleep();
+      } 
+      reference.config.velMax = clip(flying.rc_data.ch[2] +1,0.3,2.0);
     }
 
     // ros::Time t1 = ros::Time::now();
@@ -487,7 +540,7 @@ int main(int argc, char **argv)
 
     // ros::Duration(1/CtrlFreq).sleep();
     loop_rate.sleep();
-    if (if_end && !if_rand && return_home <= 1)
+    if (if_end && !if_rand && return_home <= 1 && !rc_goal)
     {
       break;
     }

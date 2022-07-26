@@ -190,6 +190,7 @@ include_directories(
 set(ENV_OFFB
 src/ros_missn.cpp 
 src/call_states/ros_communicate.cpp
+src/call_states/input.cpp
 
 )
 

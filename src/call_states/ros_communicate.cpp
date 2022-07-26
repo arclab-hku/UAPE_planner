@@ -10,6 +10,10 @@ void Listener::init()
         Cam_mt<<0,0,1,-1,0,0,0,-1,0;
         fx = 382.7880554199219; cx = 319.20953369140625; fy = 382.7880554199219; cy = 242.66583251953125;
 }
+// void Listener::rcCb(const mavros_msgs::RCInConstPtr & inMsg)
+// {
+  
+// }
 void Listener::stateCb(const mavros_msgs::State::ConstPtr& msg)
 {
     flight_state = *msg;
