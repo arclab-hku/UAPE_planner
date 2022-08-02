@@ -471,12 +471,16 @@ private:
                 t_gap = t_now -dynobs_pointer->time_stamp;}
                 // t_gap = t_now - dynobs_pointer->time_stamp;
                 // cout << "mk321-1" <<endl<<t_gap<<endl;
+                double obj_prop_conv = pow(dynobs_pointer->max_accs[m](1) + dynobs_pointer->max_accs[m](2)*t_gap*t_gap,0.5);
+                obj_prop_conv = obj_prop_conv >0.5 ? 0.5 : obj_prop_conv;
+                Eigen::Vector3d conv_vec = {obj_prop_conv, obj_prop_conv, 0.0};
+                // conv_vec *= 0.5;
+                Eigen::Vector3d acc_vec = {dynobs_pointer->max_accs[m](0)*t_gap*t_gap/2, dynobs_pointer->max_accs[m](0)*t_gap*t_gap/2, 0};
                 ct_center = dynobs_pointer->centers[m] + t_gap*dynobs_pointer->vels[m];
-                Eigen::Vector3d check_vec=((ct_center - pos).cwiseAbs() - dynobs_pointer->obs_sizes[m]*0.5);
-                Eigen::Vector3d check_vec_acc=((ct_center - pos).cwiseAbs() - dynobs_pointer->obs_sizes[m]*0.5 - 
-                dynobs_pointer->max_accs[m]*t_gap*t_gap/2);
+                Eigen::Vector3d check_vec=((ct_center - pos).cwiseAbs() - dynobs_pointer->obs_sizes[m]*0.5 - conv_vec);
+                Eigen::Vector3d check_vec_acc= check_vec - acc_vec;
                 double grad_prev_t = 0.0;
-                if ((check_vec_acc.array()<0.0).all() )
+                if ((check_vec_acc.array()<0.0).all())
                 { 
                 //Eigen::Vector3d dist_vec = pos - ct_center;
                 //  cout << "max_accs" <<endl<<dynobs_pointer->max_accs[m]<<endl;
@@ -486,12 +490,12 @@ private:
                 {
                 // double sa = dynobs_pointer->obs_sizes[m].squaredNorm()/4;
                 // if(m==0)  vMaxSqr = vMax * vMax*1.2;
-                Eigen::Vector3d half_len = (dynobs_pointer->obs_sizes[m]*0.5).array()+safeMargin;
+                Eigen::Vector3d half_len = (dynobs_pointer->obs_sizes[m]*0.5 + conv_vec).array()+safeMargin;
                 inv_z = 1/(half_len(2)*half_len(2)); inv_x = 1/(half_len(0)*half_len(0)); inv_y = 1/(half_len(1)*half_len(1));
                 // double ellip_dist2 = dist_vec(2) * dist_vec(2) * inv_a2 + (dist_vec(0) * dist_vec(0) + dist_vec(1) * dist_vec(1)) * inv_b2;
                 double ellip_dist2 = dist_vec(2) * dist_vec(2) * inv_z + dist_vec(0) * dist_vec(0) * inv_x+ dist_vec(1) * dist_vec(1)* inv_y;
                 // double dist2_err = sa - ellip_dist2;
-                double dist2_err = 2.5- ellip_dist2;
+                double dist2_err = 1.5- ellip_dist2;
                 double dist2_err2 = dist2_err * dist2_err;
                 double dist2_err3 = dist2_err2 * dist2_err;
                 pena += wei_dyn * dist2_err3 * omg * step;
@@ -503,8 +507,7 @@ private:
                 }
                 else if (t_gap<3.0)
                 {
-                Eigen::Vector3d half_len = (dynobs_pointer->obs_sizes[m]*0.5 +
-                dynobs_pointer->max_accs[m]*t_gap*t_gap/2);
+                Eigen::Vector3d half_len = dynobs_pointer->obs_sizes[m]*0.5 + conv_vec + acc_vec;
                 inv_z = 1/(half_len(2)*half_len(2)); inv_x = 1/(half_len(0)*half_len(0)); inv_y = 1/(half_len(1)*half_len(1));
                 double ellip_dist2 = dist_vec(2) * dist_vec(2) * inv_z + dist_vec(0) * dist_vec(0) * inv_x+ dist_vec(1) * dist_vec(1)* inv_y;
                 double dist2_err = 2.5- ellip_dist2;

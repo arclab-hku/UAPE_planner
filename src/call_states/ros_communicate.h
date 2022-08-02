@@ -75,6 +75,7 @@ class Listener
         dynobs_tmp dynobs;
         
         bool pcl_update = false;
+        bool dyn_update = false;
         bool waypoint_update = false;
         bool trigger = false;
         sensor_msgs::PointCloud cloud;

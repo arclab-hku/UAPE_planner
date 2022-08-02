@@ -188,7 +188,7 @@ void Listener::static_pcl_Cb(const sensor_msgs::PointCloud2::ConstPtr & msg)
 void  Listener::objCb(const obj_state_msgs::ObjectsStates::ConstPtr & msg)
 {   
     cout << "obj received: "<<msg->states.size()<<endl;
-    pcl_update = true;
+    dyn_update = true;
     dynobs.dyn_number = msg->states.size();
     dynobs.time_stamp =msg->header.stamp.toSec();
     dynobs.centers.clear();
@@ -348,7 +348,7 @@ void  Listener::ballCb(const obj_state_msgs::ObjectsStates::ConstPtr & msg)
 {   
     // cout << "ball received!"<<endl;
     dynobs.ball_number = msg->states.size();
-    pcl_update = true;
+    dyn_update = true;
     dynobs.ballpos.clear();
     dynobs.ballpos.resize(dynobs.ball_number);
     dynobs.ballvel.clear();

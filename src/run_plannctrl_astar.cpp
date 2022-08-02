@@ -35,7 +35,7 @@ int main(int argc, char **argv)
   a_d.setZero();
   MatrixXd sp_pos, sp_vel, sp_acc, waypoints_m;
   double last_path_t = 0;
-  TrajectoryGenerator_fast reference;
+
   Eigen::Vector3d end_state = Eigen::Vector3d::Zero(3);
   vector<double> goalp, gbbox_o, gbbox_l, timecosts;
   Matrix<double, 3, 5> camera_vertex, camera_vertex_b, camera_vertex_bv;
@@ -72,11 +72,10 @@ int main(int argc, char **argv)
   nh.getParam("CtrlFreq", CtrlFreq);
   nh.getParam("if_debug", if_debug);
   nh.getParam("UseRawPcl", if_raw_pcl);
-  nh.getParam("UseRawDepth",  if_depth_img);
+  nh.getParam("UseRawDepth", if_depth_img);
 
   nh.getParam("ReturnHome", return_home);
   nh.getParam("UseRcGuide", rc_goal);
-  
 
   ros::Rate loop_rate(CtrlFreq);
   camera_vertex_b.col(0) << 0, 0, 0;
@@ -90,10 +89,11 @@ int main(int argc, char **argv)
   camera_vertex_bv.col(2) << cam_depth_v, -tan(h_fov / 2 * d2r) * cam_depth_v, tan(v_fov / 2 * d2r) * cam_depth_v;
   camera_vertex_bv.col(3) << cam_depth_v, -tan(h_fov / 2 * d2r) * cam_depth_v, -tan(v_fov / 2 * d2r) * cam_depth_v;
   camera_vertex_bv.col(4) << cam_depth_v, tan(h_fov / 2 * d2r) * cam_depth_v, -tan(v_fov / 2 * d2r) * cam_depth_v;
+  TrajectoryGenerator_fast reference(camera_vertex_b);
   // dis_goal = dis_goal_ini-0.5;
   Eigen::Vector3d g_goal = {goalp[0], goalp[1], goalp[2]};
   Eigen::Vector3d goal = g_goal;
-  Eigen::Vector3d local_goal = {0,0,0};
+  Eigen::Vector3d local_goal = {0, 0, 0};
   Eigen::Vector3d initial_goal = g_goal;
   bool if_initial = true;
   bool if_end = false;
@@ -135,7 +135,7 @@ int main(int argc, char **argv)
   while (nh.ok()) // main loop
   {
     // dis_goal = dis_goal_ini-0.5;
-    
+
     path_replan = false;
     if ((return_home > 0 && if_end) || (if_rand && (if_end || (rand_num < 0)))) // choose goal randomly at the global bounding box boundary
     {
@@ -203,11 +203,12 @@ int main(int argc, char **argv)
         desire_yaw = -desire_yaw;
       }
       ct_pos = state.P_E;
-      double yaw_rate = abs(desire_yaw - state.Euler(2))>3.14159?-sign(desire_yaw - state.Euler(2))*0.6:sign(desire_yaw - state.Euler(2))*0.6;
-      ros::Duration(1).sleep();
+      double yaw_rate = abs(desire_yaw - state.Euler(2)) > 3.14159 ? -sign(desire_yaw - state.Euler(2)) * 0.6 : sign(desire_yaw - state.Euler(2)) * 0.6;
+      ros::Duration(0.5).sleep();
       do
       {
-        state = flying.step(state.Euler(2) + yaw_rate*0.5, yaw_rate, ct_pos, Vector3d::Zero(3), Vector3d::Zero(3), "pos_vel_acc_yaw_c");
+        state = flying.step(state.Euler(2) + yaw_rate * 0.5, yaw_rate, ct_pos, Vector3d::Zero(3), Vector3d::Zero(3), "pos_vel_acc_yaw_c");
+        // cout<<"turn to goal: "<< state.Euler(2) + yaw_rate * 0.5 << endl;
         ros::Duration(0.05).sleep();
       } while (abs(state.Euler(2) - desire_yaw) > 0.3);
       ros::Duration(0.5).sleep();
@@ -215,37 +216,37 @@ int main(int argc, char **argv)
     else if (rc_goal)
     {
       // state = flying.get_state();
-     local_goal = {flying.rc_data.ch[1],flying.rc_data.ch[0],clip(flying.rc_data.ch[3],-0.3,0.3)};
-     ct_pos = state.P_E;
-     double yaw_fix = state.Euler(2);
-     while ((local_goal * dis_goal).norm() < 0.5)
+      local_goal = {flying.rc_data.ch[1], flying.rc_data.ch[0], clip(flying.rc_data.ch[3], -0.3, 0.3)};
+      ct_pos = state.P_E;
+      double yaw_fix = state.Euler(2);
+      while ((local_goal * dis_goal).norm() < 0.5)
       {
         state = flying.step(yaw_fix, 0, ct_pos, Vector3d::Zero(3), Vector3d::Zero(3), "pos_vel_acc_yaw_c");
-        local_goal = {flying.rc_data.ch[1],flying.rc_data.ch[0],0};
+        local_goal = {flying.rc_data.ch[1], flying.rc_data.ch[0], 0};
         ros::Duration(0.1).sleep();
-      if_end = false;
-      if_initial = true;
-      if_reach = false;
-      waypoints.clear();
-      flying.dynobs_pointer->dyn_number = 0;
-        cout<<"RC hover"<<endl;
+        if_end = false;
+        if_initial = true;
+        if_reach = false;
+        waypoints.clear();
+        flying.dynobs_pointer->dyn_number = 0;
+        cout << "RC hover" << endl;
       }
 
-     while ((local_goal * dis_goal).norm() < 2.0)
+      while ((local_goal * dis_goal).norm() < 2.0)
       {
         state = flying.step(yaw_fix, 0, state.P_E + local_goal, Vector3d::Zero(3), Vector3d::Zero(3), "pos_vel_acc_yaw_c");
-        local_goal = {flying.rc_data.ch[1],flying.rc_data.ch[0],clip(flying.rc_data.ch[3],-0.3,0.3)};
+        local_goal = {flying.rc_data.ch[1], flying.rc_data.ch[0], clip(flying.rc_data.ch[3], -0.3, 0.3)};
         ros::Duration(0.1).sleep();
-      if_end = false;
-      if_initial = true;
-      if_reach = false;
-      waypoints.clear();
-      flying.dynobs_pointer->dyn_number = 0;
-        cout<<"RC move"<<endl;
+        if_end = false;
+        if_initial = true;
+        if_reach = false;
+        waypoints.clear();
+        flying.dynobs_pointer->dyn_number = 0;
+        cout << "RC move" << endl;
       }
 
-     g_goal = state.P_E + local_goal * dis_goal;
-     goal = g_goal;
+      g_goal = state.P_E + local_goal * dis_goal;
+      goal = g_goal;
       Vector2d v2 = (g_goal - state.P_E).head(2);
       Vector2d v1;
       v1 << 1.0, 0.0;
@@ -254,24 +255,26 @@ int main(int argc, char **argv)
       {
         desire_yaw = -desire_yaw;
       }
-           ct_pos = state.P_E;
-double yaw_rate = abs(desire_yaw - state.Euler(2))>3.14159?-sign(desire_yaw - state.Euler(2))*0.6:sign(desire_yaw - state.Euler(2))*0.6;
-      while (abs(state.Euler(2) - desire_yaw) > 0.3 && if_initial);
+      ct_pos = state.P_E;
+      double yaw_rate = abs(desire_yaw - state.Euler(2)) > 3.14159 ? -sign(desire_yaw - state.Euler(2)) * 0.6 : sign(desire_yaw - state.Euler(2)) * 0.6;
+      while (abs(state.Euler(2) - desire_yaw) > 0.3 && if_initial)
+        ;
       {
-        state = flying.step(state.Euler(2) + yaw_rate*0.5, yaw_rate, ct_pos, Vector3d::Zero(3), Vector3d::Zero(3), "pos_vel_acc_yaw_c");
+        state = flying.step(state.Euler(2) + yaw_rate * 0.5, yaw_rate, ct_pos, Vector3d::Zero(3), Vector3d::Zero(3), "pos_vel_acc_yaw_c");
         ros::Duration(0.05).sleep();
-      } 
-      reference.config.velMax = clip(flying.rc_data.ch[2] +1,0.3,2.0);
+      }
+      reference.config.velMax = clip(flying.rc_data.ch[2] + 1, 0.3, 2.0);
     }
 
     // ros::Time t1 = ros::Time::now();
     chrono::high_resolution_clock::time_point t1 = chrono::high_resolution_clock::now();
-    if (flying.pcl_update)
+    if (flying.pcl_update || flying.dyn_update)
     {
 
       state = flying.get_state();
-      flying.set_cod_update(false);
-      flying.set_pcl_update(false);
+      // flying.set_cod_update(false);
+      if (flying.pcl_update && flying.obs_pointer->size() > 0)
+        kino_path_finder_->setEnvironment(flying.obs_pointer, flying.dynobs_pointer, camera_vertex, gbbox_o, gbbox_l);
       if (flying.dynobs_pointer->ball_number > 0 && ros::Time::now().toSec() - flying.dynobs_pointer->ball_time_stamp > ball_pass_time) // for bag sim// flying.dynobs_pointer->ball_number>0 && (flying.dynobs_pointer->ballvel[0](0) > -0.2)||
       {
         if (if_debug)
@@ -343,15 +346,13 @@ double yaw_rate = abs(desire_yaw - state.Euler(2))>3.14159?-sign(desire_yaw - st
 
       if (dis2goal > 1.0 && flying.obs_pointer->size() > 0) // && !if_initial
       {
-
         // cout << "The obs pointer:\n" << flying.obs_pointer << "---pcl size: "<< flying.obs_pointer->size()<< endl;
         // cout<<"goal:"<<goal<<" "<<g_goal<<endl;
         chrono::high_resolution_clock::time_point tic = chrono::high_resolution_clock::now();
         // cout << "The obs pointer:\n" << flying.obs_pointer << "---pcl size: "<< flying.obs_pointer->size()<< endl;
-        kino_path_finder_->setEnvironment(flying.obs_pointer, flying.dynobs_pointer, camera_vertex, gbbox_o, gbbox_l);
         if (!kino_path_finder_->checkOldPath(waypoints, ct_pos) || (reference.last_jointPolyH_check(ct_pos) && !if_reach))
         {
-           cout << "Ready to search" <<endl;
+          cout << "Ready to search" << endl;
 
           if (dis2goal > dis_goal)
           {
@@ -363,7 +364,7 @@ double yaw_rate = abs(desire_yaw - state.Euler(2))>3.14159?-sign(desire_yaw - st
           {
             goal = g_goal;
             if_reach = true;
-                 tem_dis_goal = dis2goal;
+            tem_dis_goal = dis2goal;
           }
           kino_path_finder_->reset();
           status = kino_path_finder_->search(ct_pos, ct_vel, ct_acc, goal, end_state, true);
@@ -432,18 +433,19 @@ double yaw_rate = abs(desire_yaw - state.Euler(2))>3.14159?-sign(desire_yaw - st
       // cout<<"waypoints: \n"<<waypoints_m<<endl;
       if (!if_initial)
       {
-       if (ifMove)
-        if_safe = reference.check_polyH_safe(traj_last_t.toSec(), waypoints_m, ct_pos, flying.obs_pointer, flying.dynobs_pointer, ros::Time::now().toSec(), path_replan);
-       else
-        if_safe = reference.check_polyH_safe(ros::Time::now().toSec(), waypoints_m, ct_pos, flying.obs_pointer, flying.dynobs_pointer, ros::Time::now().toSec(), path_replan);
+        if (ifMove)
+          if_safe = reference.check_polyH_safe(traj_last_t.toSec(), waypoints_m, ct_pos, flying.obs_pointer, flying.dynobs_pointer, ros::Time::now().toSec(), path_replan, flying.pcl_update);
+        else
+          if_safe = reference.check_polyH_safe(ros::Time::now().toSec(), waypoints_m, ct_pos, flying.obs_pointer, flying.dynobs_pointer, ros::Time::now().toSec(), path_replan, flying.pcl_update);
       }
+      flying.set_pcl_update(false);
       // cout << "corridor update, check safety result:" << if_safe <<endl;
       if (if_debug)
         cout << "point cloud update, check safety result:" << if_safe << endl;
       if (if_safe && !if_initial && !((!last_if_reach) && if_reach) && !ball_time_out) //&& (timee+sfck_t < reference.total_t || reference.total_t <sfck_t)
       {
         gap = chrono::duration_cast<chrono::microseconds>(chrono::high_resolution_clock::now() - last_traj_tic).count() * 1.0e-6;
-        timee = gap + 1 / CtrlFreq / 4;
+        timee = gap ; //+ 1 / CtrlFreq / 4;
       }
 
       else
@@ -453,12 +455,17 @@ double yaw_rate = abs(desire_yaw - state.Euler(2))>3.14159?-sign(desire_yaw - st
 
         if (ball_time_out)
           ball_time_out = false;
+
+        traj_last_t = ros::Time::now();
+        gap = chrono::duration_cast<chrono::microseconds>(chrono::high_resolution_clock::now() - last_traj_tic).count() * 1.0e-6 - timee;
+        last_traj_tic = chrono::high_resolution_clock::now();
+        if (if_initial)
+          timee = 0; //1 / CtrlFreq / 4;
+        else
+          timee = gap;
+        // cout<<"if reach: "<<last_if_reach<<"  "<<if_reach<<endl;
         if (if_initial)
           if_initial = false;
-        traj_last_t = ros::Time::now();
-        last_traj_tic = chrono::high_resolution_clock::now();
-        timee = 0; // 1 / CtrlFreq / 2;
-        // cout<<"if reach: "<<last_if_reach<<"  "<<if_reach<<endl;
         if (if_debug)
           cout << "old traj is not safe, get new traj!" << endl;
       }
@@ -486,7 +493,7 @@ double yaw_rate = abs(desire_yaw - state.Euler(2))>3.14159?-sign(desire_yaw - st
       //  ros::Duration(1/CtrlFreq).sleep();
       //  timee = (ros::Time::now() - traj_last_t).toSec()+ 1/CtrlFreq;
       gap = chrono::duration_cast<chrono::microseconds>(chrono::high_resolution_clock::now() - last_traj_tic).count() * 1.0e-6;
-      timee = gap + 1 / CtrlFreq / 4;
+      timee = gap; // + 1 / CtrlFreq / 4;
       // cout<<"control sample time gap (no pcl updated): "<<gap<<endl;
       state = flying.get_state();
       //  if ( timee > reference.total_t - 0.1)
@@ -498,7 +505,9 @@ double yaw_rate = abs(desire_yaw - state.Euler(2))>3.14159?-sign(desire_yaw - st
     }
     Vector2d desire_psi;
     //  cout<< "distance to goal: "<<(g_goal-state.P_E).norm()<<endl;
-    if ((g_goal - state.P_E).norm() > 0.5)
+    // if ((g_goal - state.P_E).norm() > 0.1)
+    // {
+    if (timee < reference.total_t - 0.01)
     {
       reference.get_desire(timee, p_d, v_d, a_d, p_d_yaw);
       // Vector2d v2 = (p_d_yaw - state.P_E).head(2);
@@ -508,21 +517,21 @@ double yaw_rate = abs(desire_yaw - state.Euler(2))>3.14159?-sign(desire_yaw - st
 
       // if (v2(1)<0)
       // {desire_psi = -desire_psi;}
-      desire_psi = reference.getYaw(timee);
+      desire_psi = reference.getYaw(timee + traj_last_t.toSec());
     }
     else
     {
+      reference.get_desire(reference.total_t, p_d, v_d, a_d, p_d_yaw);
       cout << "goal reached: " << g_goal << endl;
-      p_d = g_goal;
-      v_d.setZero();
-      a_d.setZero();
+      // p_d = g_goal;
+      // v_d.setZero();
+      // a_d.setZero();
       if_end = true;
-      for (int counter = 0;counter<20;counter++)
-      {
-        state = flying.step(desire_psi[0], desire_psi[1], p_d, v_d, a_d, "pos_vel_acc_yaw_c");
-        ros::Duration(0.05).sleep();
-      }
-      
+      // for (int counter = 0;counter<20;counter++)
+      // {
+      //   state = flying.step(desire_psi[0], desire_psi[1], p_d, v_d, a_d, "pos_vel_acc_yaw_c");
+      //   ros::Duration(0.05).sleep();
+      // }
     }
 
     if (ifMove)

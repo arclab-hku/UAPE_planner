@@ -758,7 +758,7 @@ bool KinodynamicAstar::checkOldPath(vector<Eigen::Vector3d> &point_set, Eigen::V
       point_set.insert(point_set.begin(), new_start);
   }
   if (!if_safe)
-    cout << "A* safety check not safe! " << endl;
+    cout << "A* old path is not safe! " << endl;
   return if_safe;
 }
 bool KinodynamicAstar::line_collide(Eigen::Vector3d &p1, Eigen::Vector3d &p2)

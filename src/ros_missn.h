@@ -97,6 +97,7 @@ class RosClass
         VectorXd cd_r;
         bool waypoint_update = false;
         bool pcl_update = false;
+        bool dyn_update = false;
         bool trigger = false;
         double Yaw;
         sensor_msgs::PointCloud *pcl_pointer;
