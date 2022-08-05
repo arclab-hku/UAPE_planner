@@ -470,7 +470,7 @@ inline bool TrajectoryGenerator_fast::dyn_safe_check(Vector3d pt, double check_t
     {
       ct_center = dynobs_pointer->centers[j] + t_base * dynobs_pointer->vels[j];
       obj_prop_conv = pow(dynobs_pointer->max_accs[j](1) + dynobs_pointer->max_accs[j](2) * t_base * t_base, 0.5);
-      obj_prop_conv = obj_prop_conv > 0.5 ? 0.5 : obj_prop_conv;
+      obj_prop_conv = obj_prop_conv > 0.3 ? 0.3 : obj_prop_conv;
       conv_vec = {obj_prop_conv, obj_prop_conv, 0.0};
       // cout << "ct_center:\n"<<ct_center <<endl<<"pt: \n"<<pt<<endl<<"obs size: \n"<<dynobs_pointer->obs_sizes[j]*0.5<<"\ntime gap: "<<t_base<<"\n pos gap:"<<(ct_center - pt).cwiseAbs()<<endl<<(((ct_center - pt).cwiseAbs() - dynobs_pointer->obs_sizes[j]*0.5).array()<0)<<endl;
       if ((((ct_center - pt).cwiseAbs() - dynobs_pointer->obs_sizes[j] * 0.5 - conv_vec).array() < config.safeMargin).all())

@@ -18,7 +18,7 @@ MapHeight:                  3.0
 PolyhedronBox:              [6.0, 6.0, 3.2]  # the size constriants for a single polyhedron generated from one path segment. number1: 
                                              #offset along the path, number2: offset perdenticular to path, in the floor plane. 
                                              #number 3: offset perdenticular to path, in the verticle plane.
-GlobalBox_min:              [-15.0, -15, 0.2]  #global box constraint. The lower bound for all polyhedrons.
+GlobalBox_min:              [-15.0, -15, -0.5]  #global box constraint. The lower bound for all polyhedrons.
 GlobalBox_size:             [30.0, 30.0, 2.0]    #global box size, the allowed vehicle moving range is : GlobalBox_min->GlobalBox_min+GlobalBox_size
 Rho:                        100.0
 TotalT:                     0.0
@@ -40,7 +40,7 @@ UseC2Diffeo:                true
 OptRelTol:                  1.0e-4
 TrajVizWidth:               1.0
 TrajVizRGB:                 [0.8, 0.0, 0.0]
-ifMove:                     true #false #
+ifMove:                     false #false #
 cam_depth:                  8.0   # the camera fov: depth, horizontal view angle, vertical angle. depth > search/horizon
 h_fov:                      87.0
 v_fov:                      58.0
