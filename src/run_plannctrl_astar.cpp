@@ -34,7 +34,7 @@ int main(int argc, char **argv)
   Vector3d p_d, v_d, a_d, p_d_yaw;
   a_d.setZero();
   MatrixXd sp_pos, sp_vel, sp_acc, waypoints_m;
-  double last_path_t = 0;
+  // double last_path_t = 0;
 
   Eigen::Vector3d end_state = Eigen::Vector3d::Zero(3);
   vector<double> goalp, gbbox_o, gbbox_l, timecosts;
@@ -47,7 +47,7 @@ int main(int argc, char **argv)
   double h_fov = 87; // in degree
   double v_fov = 58;
   double dis_goal, tem_dis_goal;
-  double sfck_t;
+  // double sfck_t;
   bool ifMove, if_rand;
   int CtrlFreq;
   bool if_debug;
@@ -406,10 +406,10 @@ int main(int argc, char **argv)
               cout << "[kino replan]: retry search success." << endl;
             }
           }
-          else
-          {
-            last_path_t = ros::Time::now().toSec();
-          }
+          // else
+          // {
+          //   last_path_t = ros::Time::now().toSec();
+          // }
           double compTime = chrono::duration_cast<chrono::microseconds>(chrono::high_resolution_clock::now() - tic).count() * 1.0e-3;
           cout << "kino path planning finished! time cost (ms)： " << compTime << endl;
           if (status != KinodynamicAstar::NO_PATH && status != KinodynamicAstar::GOAL_OCC)
@@ -420,7 +420,7 @@ int main(int argc, char **argv)
         }
         else
         {
-          cout << "[kino replan]: Old kino path is safe" << endl;
+          // cout << "[kino replan]: Old kino path is safe" << endl;
         }
       }
       else
@@ -470,7 +470,7 @@ int main(int argc, char **argv)
           cout << "old traj is not safe, get new traj!" << endl;
       }
       singlestep_time = chrono::duration_cast<chrono::microseconds>(chrono::high_resolution_clock::now() - t1).count() * 1.0e-3;
-      cout << "Total time cost (ms): " << singlestep_time << endl;
+      // cout << "Total time cost (ms): " << singlestep_time << endl;
       timecosts.push_back(singlestep_time);
       if (timecosts.size() > 1000)
       {
@@ -482,7 +482,7 @@ int main(int argc, char **argv)
         reference.get_traj_samples(sp_pos, sp_vel, sp_acc, (ros::Time::now() - traj_last_t).toSec());
       else
         reference.get_traj_samples(sp_pos, sp_vel, sp_acc, 0.0);
-      flying.pub_traj(sp_pos, sp_vel, sp_acc);
+      flying.pub_traj(sp_pos, sp_vel, sp_acc, reference.fail_pt);
       // flying.pub_fovlist (sp_pos, sp_vel, sp_acc,camera_vertex_bv, reference.yaw_plan);
       flying.pub_path(waypoints);
       flying.pub_polyh(reference.decompPolys);

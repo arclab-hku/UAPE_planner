@@ -631,14 +631,15 @@ inline bool KinodynamicAstar::checkSafety(const Eigen::Vector3d &query_pt, const
   }
   quiry_num_ += 1;
   size_t ret = kdPtr_->knnSearch(query_pt.data(), 1, &nearest_index, &dist_sqr);
+  bool global_range_safe = (query_pt(2) + S_r < glbox_o_[2] + glbox_l_[2]) && (query_pt(2) - S_r > glbox_o_[2]) && (query_pt(1) + S_r < glbox_o_[1] + glbox_l_[1]) && (query_pt(1) - S_r > glbox_o_[1]) && (query_pt(0) + S_r < glbox_o_[0] + glbox_l_[0]) && (query_pt(0) - S_r > glbox_o_[0]);
   // cout << "kd tree result:"<<dist_sqr<<"---"<<nearest_index<<"---"<<S_r<<"\n"<<pcPtr_->pts->at(nearest_index) <<endl<<query_pt<<endl;
   if (current_time < -2)
   {
-    return (dist_sqr > 1 * S_r) && (query_pt(2) + S_r < glbox_o_[2] + glbox_l_[2]) && (query_pt(2) - S_r > glbox_o_[2]) && (query_pt(1) + S_r < glbox_o_[1] + glbox_l_[1]) && (query_pt(1) - S_r > glbox_o_[1]) && (query_pt(0) + S_r < glbox_o_[0] + glbox_l_[0]) && (query_pt(0) - S_r > glbox_o_[0]);
+    return (dist_sqr > 1 * S_r) && global_range_safe;
   }
   else if (current_time < 0 || dynobs_pointer_->dyn_number == 0)
   {
-    return (dist_sqr > S_r) && (query_pt(2) + S_r < glbox_o_[2] + glbox_l_[2]) && (query_pt(2) - S_r > glbox_o_[2]) && (query_pt(1) + S_r < glbox_o_[1] + glbox_l_[1]) && (query_pt(1) - S_r > glbox_o_[1]) && (query_pt(0) + S_r < glbox_o_[0] + glbox_l_[0]) && (query_pt(0) - S_r > glbox_o_[0]);
+    return (dist_sqr > 0.7*S_r) && global_range_safe;
   }
 
   double time = current_time + time_offset;
@@ -647,7 +648,7 @@ inline bool KinodynamicAstar::checkSafety(const Eigen::Vector3d &query_pt, const
   for (int i = 0; i < dynobs_pointer_->dyn_number; i++)
   {
     Eigen::Vector3d check_vec = ((dynobs_pointer_->centers[i] + (time * dynobs_pointer_->vels[i]) - query_pt).cwiseAbs() - dynobs_pointer_->obs_sizes[i] * 0.5);
-    if ((check_vec.array() < 0.0).all())
+    if ((check_vec.array() < 1.5*S_r).all())
 
     {
       dyn_safe = false;
@@ -655,7 +656,7 @@ inline bool KinodynamicAstar::checkSafety(const Eigen::Vector3d &query_pt, const
     }
   }
   // nnpt = pcPtr_->pts[nearest_index];
-  return (dist_sqr > S_r) && dyn_safe;
+  return (dist_sqr > S_r) && dyn_safe && global_range_safe;
 }
 void KinodynamicAstar::reset()
 {

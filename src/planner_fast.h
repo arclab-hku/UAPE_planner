@@ -122,7 +122,7 @@ private:
     Matrix3d iS, fS;        // xyz * pva        // intial & finial state
     bool G = 9.8016;
     double delta_t_yaw = 0.5;
-    bool last_traj_polyH_check = true;
+    bool last_traj_polyH_check;
     bool yaw_timeout = true;
     double yaw_plan_tm,plan_tm;
     SE3GCOPTER nonlinOpt;
@@ -165,6 +165,7 @@ public:
     VectorXf bound;
     vector<Vector3d> wPs;
     double total_t;
+      Vec3f pt,fail_pt;
     uint check_sfc_ind;
     vector<double> yaw_plan;
     vector<double> yaw_plan_t;

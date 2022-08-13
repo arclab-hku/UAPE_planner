@@ -120,7 +120,7 @@ class RosClass
         //basic missions
         States launch(void);
         States step(double double_n,double  yaw_rate,  Vector3d pos,Vector3d vel,Vector3d acc, string mode);
-        void pub_traj(MatrixXd pos, MatrixXd vel, MatrixXd acc);
+        void pub_traj(MatrixXd pos, MatrixXd vel, MatrixXd acc, Vec3f fail_pt);
         void pub_fovlist(MatrixXd pos, MatrixXd vel, MatrixXd acc,Eigen::Matrix<double, 3, 5> camera_vertex, vector<double> yaw_plan);
         void pub_path(vector<Eigen::Vector3d> &waypoints);
         void land(Vector3d endp);

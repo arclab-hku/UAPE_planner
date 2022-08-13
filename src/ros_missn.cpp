@@ -255,12 +255,33 @@ void RosClass::pub_path(vector<Eigen::Vector3d> &waypoints)
     }
     path_pub_.publish(traj);
 }
-void RosClass::pub_traj(MatrixXd pos, MatrixXd vel, MatrixXd acc)
+void RosClass::pub_traj(MatrixXd pos, MatrixXd vel, MatrixXd acc, Vec3f fail_pt)
 {
     nav_msgs::Path traj;
     visualization_msgs::MarkerArray detail_traj;
     traj.header.frame_id = "map";
     traj.header.stamp = ros::Time::now();
+
+    geometry_msgs::PoseStamped pose;
+    pose.header.frame_id = "map";
+    //    pose.header.stamp = rospy.Time.now()
+    pose.pose.position.x = fail_pt[0];
+    pose.pose.position.y = fail_pt[1];
+    pose.pose.position.z = fail_pt[2];
+    visualization_msgs::Marker pos_sample;
+    pos_sample.header.frame_id = "map";
+    pos_sample.header.stamp = ros::Time::now();
+    pos_sample.id = 0;
+    pos_sample.type = visualization_msgs::Marker::SPHERE;
+    pos_sample.pose = pose.pose;
+    pos_sample.pose.orientation.w = 1.0;
+    pos_sample.scale.x = 0.2;
+    pos_sample.scale.y = 0.2;
+    pos_sample.scale.z = 0.2;
+    pos_sample.color.r = 1.0;
+    pos_sample.color.a = 1.0;
+    pos_sample.lifetime = ros::Duration(1);
+    detail_traj.markers.push_back(pos_sample);
 
     for (int i = 0; i < pos.rows(); i++)
     {
@@ -272,24 +293,23 @@ void RosClass::pub_traj(MatrixXd pos, MatrixXd vel, MatrixXd acc)
         pose.pose.position.x = pos(i, 0);
         pose.pose.position.y = pos(i, 1);
         pose.pose.position.z = pos(i, 2);
-
         traj.poses.push_back(pose);
-        if (i < 9)
-        {
-            pos_sample.header.frame_id = "map";
-            pos_sample.header.stamp = ros::Time::now();
-            pos_sample.id = i;
-            pos_sample.type = visualization_msgs::Marker::SPHERE;
-            pos_sample.pose = pose.pose;
-            pos_sample.pose.orientation.w = 1.0;
-            pos_sample.scale.x = 0.2;
-            pos_sample.scale.y = 0.2;
-            pos_sample.scale.z = 0.2;
-            pos_sample.color.b = 1.0;
-            pos_sample.color.a = 1.0;
-            pos_sample.lifetime = ros::Duration(0.5);
-            detail_traj.markers.push_back(pos_sample);
-        }
+        // if (i < 9)
+        // {
+        //     pos_sample.header.frame_id = "map";
+        //     pos_sample.header.stamp = ros::Time::now();
+        //     pos_sample.id = i;
+        //     pos_sample.type = visualization_msgs::Marker::SPHERE;
+        //     pos_sample.pose = pose.pose;
+        //     pos_sample.pose.orientation.w = 1.0;
+        //     pos_sample.scale.x = 0.2;
+        //     pos_sample.scale.y = 0.2;
+        //     pos_sample.scale.z = 0.2;
+        //     pos_sample.color.b = 1.0;
+        //     pos_sample.color.a = 1.0;
+        //     pos_sample.lifetime = ros::Duration(0.5);
+        //     detail_traj.markers.push_back(pos_sample);
+        // }
     }
 
     traj_pub_.publish(traj);

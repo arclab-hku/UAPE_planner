@@ -41,9 +41,11 @@ public:
     ~MINCO_S3() { A.destroy(); }
     double pena = 0.0;
     double pena_ball = 0.0;
+    double pena_sta = 0.0;
     double pena_acc = 0.0;
     double cost_total;
-      //my 
+    double dyn_coe = 15.0;
+    // my
     // double compute_time = 0;
 private:
     int N;
@@ -59,7 +61,7 @@ private:
     Eigen::VectorXd T4;
     Eigen::VectorXd T5;
     Eigen::MatrixXd gdC;
-    double* cost_block;
+    double *cost_block;
 
 private:
     template <typename EIGENVEC>
@@ -228,22 +230,31 @@ private:
     {
         pena = 0.0;
         pena_ball = 0.0;
+        pena_sta = 0.0;
         pena_acc = 0.0;
         double vMaxSqr;
-        if (dynobs_pointer->ball_number >0)
-        {if (vMax <= 2)
-        {vMaxSqr = 32.0;}
-        else{
-            vMaxSqr = vMax * vMax*8;}
-         }
+        if (dynobs_pointer->ball_number > 0)
+        {
+            if (vMax <= 2)
+            {
+                vMaxSqr = 32.0;
+            }
+            else
+            {
+                vMaxSqr = vMax * vMax * 8;
+            }
+        }
         // else if (dynobs_pointer->dyn_number >0)
         //  {vMaxSqr = vMax * vMax*1.9;}
-        else{vMaxSqr = vMax * vMax;}
-        
+        else
+        {
+            vMaxSqr = vMax * vMax;
+        }
+
         const double thrAccMinSqr = thrAccMin * thrAccMin;
         const double thrAccMaxSqr = thrAccMax * thrAccMax;
         const double bdrMaxSqr = bdrMax * bdrMax;
-
+        std::vector<bool> mask_dyn_idx(dynobs_pointer->dyn_number,false);
         Eigen::Vector3d pos, vel, acc, jer, sna;
         double step, alpha;
         double s1, s2, s3, s4, s5;
@@ -275,32 +286,39 @@ private:
         Eigen::Vector3d dJerSqrMagBdr;
         Eigen::Matrix3d dJerBdr, dJerxyBdr;
         Eigen::Vector3d ct_center;
-        double omg,violaPos,violaPosPenaD,violaPosPena;
-        double t_gap,t_now;
-        double wei_dyn = ci(0)*6;
-        double wei_dyn_acc = ci(0)*0.0025; //0.0005; //
-        double wei_ball = ci(0)*24;
-        int innerLoop,idx;
+        double omg, violaPos, violaPosPenaD, violaPosPena;
+        double t_gap, t_now;
+        double wei_dyn = ci(0) * dyn_coe;
+        double wei_dyn_acc = ci(0) * 0.0025; // 0.0005; //
+        double wei_ball = ci(0) * 24;
+        double current_pena;
+        int innerLoop, idx;
         constexpr double inv_a2 = 1 / 2.0 / 2.0, inv_b2 = 1.0;
-        double inv_x,inv_y,inv_z;
+        double inv_x, inv_y, inv_z;
         for (int i = 0; i < N; i++)
         {
             const auto &c = b.block<6, 3>(i * 6, 0);
             s1 = 0.0;
             step = T1(i) / cons(i);
             innerLoop = cons(i) + 1;
-            if (dynobs_pointer->ball_number >0 && step > 0.1)
-            {step = 0.1;
-             innerLoop = int(T1(i)/step)+1;}
-            
-            
-            
+            // if (dynobs_pointer->ball_number > 0 && step > 0.1)
+            // {
+            //     step = 0.1;
+            //     innerLoop = int(T1(i) / step) + 1;
+            //     cons(i) = T1(i)/step;
+            // }
+
             for (int j = 0; j < innerLoop; j++)
-            {   
-                
-                if (i>0){
-                t_now = plan_t + T1.head(i).sum()+s1;}
-                else{t_now = plan_t + s1;}
+            {
+
+                if (i > 0)
+                {
+                    t_now = plan_t + T1.head(i).sum() + s1;
+                }
+                else
+                {
+                    t_now = plan_t + s1;
+                }
                 s2 = s1 * s1;
                 s3 = s2 * s1;
                 s4 = s2 * s2;
@@ -313,52 +331,51 @@ private:
                 beta4 << 0.0, 0.0, 0.0, 0.0, 24.0, 120.0 * s1;
                 // cout << "mk3201" <<endl;
                 alpha = 1.0 / cons(i) * j;
-                pos = c.transpose() * beta0;//c_0->c_5
+                pos = c.transpose() * beta0; // c_0->c_5
                 vel = c.transpose() * beta1;
                 acc = c.transpose() * beta2;
                 jer = c.transpose() * beta3;
                 sna = c.transpose() * beta4;
-                
+
                 h = acc;
                 h(2) += gAcc;
-                normalizeFDF(h, zB, dzB);
-                
-                //Zb
-                czB << 0.0, zB(2), -zB(1);
-                cdzB << Eigen::RowVector3d::Zero(), dzB.row(2), -dzB.row(1);
-                normalizeFDF(czB, yB, dnczB);
-                //Yb
-                xB = yB.cross(zB);
-                dyB = dnczB * cdzB;
-                dxB.col(0) = dyB.col(0).cross(zB) + yB.cross(dzB.col(0));
-                dxB.col(1) = dyB.col(1).cross(zB) + yB.cross(dzB.col(1));
-                dxB.col(2) = dyB.col(2).cross(zB) + yB.cross(dzB.col(2));
-                rotM << xB, yB, zB;
-                
-                gradSdTxyz.col(0) = dxB * jer;
-                gradSdTxyz.col(1) = dyB * jer;
-                gradSdTxyz.col(2) = dzB * jer;
+                // normalizeFDF(h, zB, dzB);
+
+                // Zb
+                //  czB << 0.0, zB(2), -zB(1);
+                //  cdzB << Eigen::RowVector3d::Zero(), dzB.row(2), -dzB.row(1);
+                //  normalizeFDF(czB, yB, dnczB);
+                //  //Yb
+                //  xB = yB.cross(zB);
+                //  dyB = dnczB * cdzB;
+                //  dxB.col(0) = dyB.col(0).cross(zB) + yB.cross(dzB.col(0));
+                //  dxB.col(1) = dyB.col(1).cross(zB) + yB.cross(dzB.col(1));
+                //  dxB.col(2) = dyB.col(2).cross(zB) + yB.cross(dzB.col(2));
+                //  rotM << xB, yB, zB;
+
+                // gradSdTxyz.col(0) = dxB * jer;
+                // gradSdTxyz.col(1) = dyB * jer;
+                // gradSdTxyz.col(2) = dzB * jer;
 
                 fThr = h.norm();
                 dfThr = h / fThr;
                 sqrMagThr = fThr * fThr;
                 dSqrMagThr = 2 * h;
-                rotTrDotJer = rotM.transpose() * jer;
-                bdr = rotTrDotJer / fThr;
-                xyBdr << -bdr(1), bdr(0), 0.0;
-                sqrMagBdr = xyBdr.squaredNorm();
-                dBdr = -rotTrDotJer * dfThr.transpose() / (fThr * fThr) -
-                       rotM.transpose() * (dxB * rotTrDotJer(0) + dyB * rotTrDotJer(1) + dzB * rotTrDotJer(2)) / fThr;
-                dxyBdr << -dBdr.row(1), dBdr.row(0), Eigen::RowVector3d::Zero();
-                dSqrMagBdr = 2.0 * xyBdr.transpose() * dxyBdr;
-                dJerBdr = rotM.transpose() / fThr;
-                dJerxyBdr << -dJerBdr.row(1), dJerBdr.row(0), Eigen::RowVector3d::Zero();
-                dJerSqrMagBdr = 2.0 * xyBdr.transpose() * dJerxyBdr;
+                // rotTrDotJer = rotM.transpose() * jer;
+                // bdr = rotTrDotJer / fThr;
+                // xyBdr << -bdr(1), bdr(0), 0.0;
+                // sqrMagBdr = xyBdr.squaredNorm();
+                // dBdr = -rotTrDotJer * dfThr.transpose() / (fThr * fThr) -
+                //        rotM.transpose() * (dxB * rotTrDotJer(0) + dyB * rotTrDotJer(1) + dzB * rotTrDotJer(2)) / fThr;
+                // dxyBdr << -dBdr.row(1), dBdr.row(0), Eigen::RowVector3d::Zero();
+                // dSqrMagBdr = 2.0 * xyBdr.transpose() * dxyBdr;
+                // dJerBdr = rotM.transpose() / fThr;
+                // dJerxyBdr << -dJerBdr.row(1), dJerBdr.row(0), Eigen::RowVector3d::Zero();
+                // dJerSqrMagBdr = 2.0 * xyBdr.transpose() * dJerxyBdr;
 
-                
-                violaThrl = thrAccMinSqr - sqrMagThr;
+                // violaThrl = thrAccMinSqr - sqrMagThr;
                 violaThrh = sqrMagThr - thrAccMaxSqr;
-                violaBdr = sqrMagBdr - bdrMaxSqr;
+                // violaBdr = sqrMagBdr - bdrMaxSqr;
 
                 omg = (j == 0 || j == innerLoop - 1) ? 0.5 : 1.0;
 
@@ -404,14 +421,16 @@ private:
                 for (int k = 0; k < K; k++)
                 {
                     outerNormal = cfgHs[idx].col(k).head<3>();
-                    violaPos = outerNormal.dot(pos - cfgHs[idx].col(k).tail<3>())+safeMargin;
-                    if (violaPos > 0.0)
+                    violaPos = outerNormal.dot(pos - cfgHs[idx].col(k).tail<3>()) + 1.5*safeMargin;  //projection on the direction of normal vector
+                    if (violaPos > 0.0 && T1(i) - step > s1 && step < s1 )
                     {
                         positiveSmoothedL1(violaPos, violaPosPena, violaPosPenaD);
                         gdC.block<6, 3>(i * 6, 0) += omg * step * ci(0) * violaPosPenaD * beta0 * outerNormal.transpose();
                         gdT(i) += omg * (ci(0) * violaPosPenaD * alpha * outerNormal.dot(vel) * step +
                                          ci(0) * violaPosPena / cons(i));
-                        pena += omg * step * ci(0) * violaPosPena;
+                        current_pena = omg * step  * violaPosPena;
+                        pena += current_pena* ci(0);
+                        pena_sta += current_pena;
                     }
                 }
                 // cout<<"gdT for polyH: "<< gdT<<endl;
@@ -443,125 +462,143 @@ private:
                     pena += omg * step * ci(2) * violaThrhPena;
                 }
                 // cout<<"gdT for max accel: "<< gdT<<endl;
-                if (violaBdr > 0.0)
-                {
-                    // violaBdrPenaD = violaBdr * violaBdr;
-                    // violaBdrPena = violaBdrPenaD * violaBdr;
-                    // violaBdrPenaD *= 3.0;
-                    positiveSmoothedL1(violaBdr, violaBdrPena, violaBdrPenaD);
-                    gradViolaBdrc = beta2 * dSqrMagBdr.transpose() + beta3 * dJerSqrMagBdr.transpose();
-                    gradViolaBdrt = alpha * (dSqrMagBdr.dot(jer) + dJerSqrMagBdr.dot(sna));
-                    gdC.block<6, 3>(i * 6, 0) += omg * step * ci(3) * violaBdrPenaD * gradViolaBdrc;
-                    gdT(i) += omg * (ci(3) * violaBdrPenaD * gradViolaBdrt * step +
-                                     ci(3) * violaBdrPena / cons(i));
-                    pena += omg * step * ci(3) * violaBdrPena;
-                }
+
+                // if (violaBdr > 0.0)
+                // {
+                //     // violaBdrPenaD = violaBdr * violaBdr;
+                //     // violaBdrPena = violaBdrPenaD * violaBdr;
+                //     // violaBdrPenaD *= 3.0;
+                //     positiveSmoothedL1(violaBdr, violaBdrPena, violaBdrPenaD);
+                //     gradViolaBdrc = beta2 * dSqrMagBdr.transpose() + beta3 * dJerSqrMagBdr.transpose();
+                //     gradViolaBdrt = alpha * (dSqrMagBdr.dot(jer) + dJerSqrMagBdr.dot(sna));
+                //     gdC.block<6, 3>(i * 6, 0) += omg * step * ci(3) * violaBdrPenaD * gradViolaBdrc;
+                //     gdT(i) += omg * (ci(3) * violaBdrPenaD * gradViolaBdrt * step +
+                //                      ci(3) * violaBdrPena / cons(i));
+                //     pena += omg * step * ci(3) * violaBdrPena;
+                // }
+
                 // cout<<"gdT for max rotating: "<<gdT<<endl;
                 // int dynn = dynobs_pointer->dyn_number;
                 // cout << "mk320 " << dynobs_pointer->dyn_number<<endl<<"i: "<<i<<endl<<"j: "<<j<<endl;
                 // if (i>0){
                 // t_gap = T1(i-1)+s1;}
                 // else{t_gap=  s1;}
-                
-                //cout<<"t_gap"
-                for (int m=0; m<dynobs_pointer->dyn_number; m++)
-                {
-                if(m==0)
-                {
-                t_gap = t_now -dynobs_pointer->time_stamp;}
-                // t_gap = t_now - dynobs_pointer->time_stamp;
-                // cout << "mk321-1" <<endl<<t_gap<<endl;
-                double obj_prop_conv = pow(dynobs_pointer->max_accs[m](1) + dynobs_pointer->max_accs[m](2)*t_gap*t_gap,0.5);
-                obj_prop_conv = obj_prop_conv >0.5 ? 0.5 : obj_prop_conv;
-                Eigen::Vector3d conv_vec = {obj_prop_conv, obj_prop_conv, 0.0};
-                // conv_vec *= 0.5;
-                Eigen::Vector3d acc_vec = {dynobs_pointer->max_accs[m](0)*t_gap*t_gap/2, dynobs_pointer->max_accs[m](0)*t_gap*t_gap/2, 0};
-                ct_center = dynobs_pointer->centers[m] + t_gap*dynobs_pointer->vels[m];
-                Eigen::Vector3d check_vec=((ct_center - pos).cwiseAbs() - dynobs_pointer->obs_sizes[m]*0.5 - conv_vec);
-                Eigen::Vector3d check_vec_acc= check_vec - acc_vec;
-                double grad_prev_t = 0.0;
-                if ((check_vec_acc.array()<0.0).all())
-                { 
-                //Eigen::Vector3d dist_vec = pos - ct_center;
-                //  cout << "max_accs" <<endl<<dynobs_pointer->max_accs[m]<<endl;
-                Eigen::Vector3d dist_vec = pos - ct_center;
-                Eigen::Vector3d dJ_dP;
-                if ((check_vec.array()<safeMargin).all())
-                {
-                // double sa = dynobs_pointer->obs_sizes[m].squaredNorm()/4;
-                // if(m==0)  vMaxSqr = vMax * vMax*1.2;
-                Eigen::Vector3d half_len = (dynobs_pointer->obs_sizes[m]*0.5 + conv_vec).array()+safeMargin;
-                inv_z = 1/(half_len(2)*half_len(2)); inv_x = 1/(half_len(0)*half_len(0)); inv_y = 1/(half_len(1)*half_len(1));
-                // double ellip_dist2 = dist_vec(2) * dist_vec(2) * inv_a2 + (dist_vec(0) * dist_vec(0) + dist_vec(1) * dist_vec(1)) * inv_b2;
-                double ellip_dist2 = dist_vec(2) * dist_vec(2) * inv_z + dist_vec(0) * dist_vec(0) * inv_x+ dist_vec(1) * dist_vec(1)* inv_y;
-                // double dist2_err = sa - ellip_dist2;
-                double dist2_err = 1.5- ellip_dist2;
-                double dist2_err2 = dist2_err * dist2_err;
-                double dist2_err3 = dist2_err2 * dist2_err;
-                pena += wei_dyn * dist2_err3 * omg * step;
-                pena_ball+= wei_dyn * dist2_err3 * omg * step;
-                dJ_dP = wei_dyn * 3 * dist2_err2 * (-2) * Eigen::Vector3d(inv_x * dist_vec(0), inv_y * dist_vec(1), inv_z * dist_vec(2));  //gradient!
-                gdC.block<6, 3>(i * 6, 0) += beta0 * dJ_dP.transpose()* omg * step;
-                gdT(i) += omg * (wei_dyn * dist2_err3 / innerLoop + step * dJ_dP.dot(vel - dynobs_pointer->vels[m])*j/innerLoop);
-                grad_prev_t += dJ_dP.dot(-dynobs_pointer->vels[m]);
-                }
-                else if (t_gap<3.0)
-                {
-                Eigen::Vector3d half_len = dynobs_pointer->obs_sizes[m]*0.5 + conv_vec + acc_vec;
-                inv_z = 1/(half_len(2)*half_len(2)); inv_x = 1/(half_len(0)*half_len(0)); inv_y = 1/(half_len(1)*half_len(1));
-                double ellip_dist2 = dist_vec(2) * dist_vec(2) * inv_z + dist_vec(0) * dist_vec(0) * inv_x+ dist_vec(1) * dist_vec(1)* inv_y;
-                double dist2_err = 2.5- ellip_dist2;
-                double dist2_err2 = dist2_err * dist2_err;
-                double dist2_err3 = dist2_err2 * dist2_err;
-                pena += wei_dyn_acc * dist2_err3 * omg * step;
-                pena_acc+= wei_dyn_acc * dist2_err3 * omg * step;
-                dJ_dP = wei_dyn_acc * 3 * dist2_err2 * (-2) * Eigen::Vector3d(inv_x * dist_vec(0), inv_y* dist_vec(1), inv_z * dist_vec(2));  //gradient!
-                gdC.block<6, 3>(i * 6, 0) += beta0 * dJ_dP.transpose()* omg * step;
-                gdT(i) += omg * (wei_dyn_acc * dist2_err3 / innerLoop + step * dJ_dP.dot(vel - dynobs_pointer->vels[m])*j/innerLoop); 
-                grad_prev_t += dJ_dP.dot(-dynobs_pointer->vels[m]);
-                }
-                
-                if (i > 0)
-                {
-                    gdT.head(i).array() += omg * step * grad_prev_t;
-                }
-                }
-                // cout << "mk322" <<endl;
-                }
-                
-                for (int m=0; m<dynobs_pointer->ball_number; m++)
-                {
-                if(m==0)
-                {t_gap = t_now -dynobs_pointer->ball_time_stamp;}
-                // t_gap = t_now - dynobs_pointer->time_stamp;
-                // cout << "mk321" <<endl<<t_gap<<endl<<m<<"  j: "<<j<<"  innerloop:  "<<innerLoop<<endl;
-                ct_center = dynobs_pointer->ballpos[m] +  t_gap*dynobs_pointer->ballvel[m] + 0.5* t_gap* t_gap*dynobs_pointer->ballacc[m];
-                Eigen::Vector3d check_vec=((ct_center - pos).cwiseAbs() - dynobs_pointer->ball_sizes[m]*0.5);
-                if ((ct_center - pos).norm()<dynobs_pointer->ball_sizes[m](0)*0.5) //((check_vec.array()<0.0).all())
-                { double sa = dynobs_pointer->ball_sizes[m].squaredNorm()/4;
-                //Eigen::Vector3d dist_vec = pos - ct_center;
-                // cout<<"check_vec,ct_center,pos:\n"<<check_vec<<",   \n"<<ct_center<<",   \n"<<pos<<endl<<t_gap<<endl<<dynobs_pointer->ball_sizes[m](0)*0.5<<endl<<(ct_center - pos).norm()<<endl;
-                Eigen::Vector3d dist_vec = pos - ct_center;
-                double ellip_dist2 = dist_vec(2) * dist_vec(2) * inv_a2 + (dist_vec(0) * dist_vec(0) + dist_vec(1) * dist_vec(1)) * inv_b2;
-                double dist2_err = sa - ellip_dist2;
-                double dist2_err2 = dist2_err * dist2_err;
-                double dist2_err3 = dist2_err2 * dist2_err;
 
-                pena += wei_ball * dist2_err3 * omg * step;
-                pena_ball+= wei_ball * dist2_err3 * omg * step;
-                Eigen::Vector3d dJ_dP = wei_ball * 3 * dist2_err2 * (-2) * Eigen::Vector3d(inv_b2 * dist_vec(0), inv_b2 * dist_vec(1), inv_a2 * dist_vec(2));  //gradient!
-                gdC.block<6, 3>(i * 6, 0) += beta0 * dJ_dP.transpose()* omg * step;
-                gdT(i) += omg * (wei_ball * dist2_err3 / innerLoop + step * dJ_dP.dot(vel - dynobs_pointer->ballvel[m])*j/innerLoop);
-                // cout<<"gradient: "<<beta0 * dJ_dP.transpose()* omg * step<<"\n"<<omg * (wei_ball * dist2_err3 / innerLoop + step * dJ_dP.dot(vel - dynobs_pointer->ballvel[m])*j/innerLoop)<<endl;
-                double grad_prev_t = dJ_dP.dot(-dynobs_pointer->ballvel[m]);
-                if (i > 0)
+                // cout<<"t_gap"
+                for (int m = 0; m < dynobs_pointer->dyn_number; m++)
                 {
-                    gdT.head(i).array() += omg * step * grad_prev_t;
+                    if (m == 0)
+                    {
+                        t_gap = t_now - dynobs_pointer->time_stamp;
+                    }
+                    // t_gap = t_now - dynobs_pointer->time_stamp;
+                    // cout << "mk321-1" <<endl<<t_gap<<endl;
+                    double obj_prop_conv = pow(dynobs_pointer->max_accs[m](1) + dynobs_pointer->max_accs[m](2) * t_gap * t_gap, 0.5);
+                    obj_prop_conv = obj_prop_conv > 0.5 ? 0.5 : obj_prop_conv;
+                    Eigen::Vector3d conv_vec = {obj_prop_conv, obj_prop_conv, 0.0};
+                    // conv_vec *= 0.5;
+                    Eigen::Vector3d acc_vec = {dynobs_pointer->max_accs[m](0) * t_gap * t_gap / 2, dynobs_pointer->max_accs[m](0) * t_gap * t_gap / 2, 0};
+                    ct_center = dynobs_pointer->centers[m] + t_gap * dynobs_pointer->vels[m];
+                    Eigen::Vector3d check_vec = ((ct_center - pos).cwiseAbs() - dynobs_pointer->obs_sizes[m] * 0.5 - conv_vec);
+                    Eigen::Vector3d check_vec_acc = check_vec - acc_vec;
+                    double grad_prev_t = 0.0;
+                    if ((check_vec_acc.array() < 0.0).all())
+                    {
+                        // Eigen::Vector3d dist_vec = pos - ct_center;
+                        //   cout << "max_accs" <<endl<<dynobs_pointer->max_accs[m]<<endl;
+                        Eigen::Vector3d dist_vec = pos - ct_center;
+                        Eigen::Vector3d dJ_dP;
+                        if ((check_vec.array() < safeMargin).all() && !mask_dyn_idx[m])  //
+                        {
+                            mask_dyn_idx[m] = true;
+                            Eigen::Vector3d half_len = (dynobs_pointer->obs_sizes[m] * 0.5 + conv_vec).array() + safeMargin + 0.05;
+                            Eigen::Vector3d axis = {dist_vec(0)>0?ct_center(0) + half_len(0): ct_center(0) - half_len(0), 
+                            dist_vec(1)>0?ct_center(1) + half_len(1):ct_center(1) - half_len(1), 
+                            dist_vec(2)>0?ct_center(2) + half_len(2):ct_center(2) - half_len(2)};
+                            Eigen::Vector3d dist = pos - axis;
+                            double dist_err2 = dist.squaredNorm();
+                            current_pena = dist_err2 * omg * step;
+                            pena += wei_dyn * current_pena;
+                            pena_ball += current_pena;
+                            dJ_dP = omg * step * wei_dyn * 2 *dist; // gradient!
+                            gdC.block<6, 3>(i * 6, 0) += beta0 * dJ_dP.transpose();
+                            gdT(i) += omg * wei_dyn * dist_err2 / innerLoop + dJ_dP.dot(vel ) * j / innerLoop;
+
+//original cost and gradient:
+                            // double ellip_dist2 = dist_vec(2) * dist_vec(2) * inv_z + dist_vec(0) * dist_vec(0) * inv_x + dist_vec(1) * dist_vec(1) * inv_y;
+                            // double dist2_err = 2.5 - ellip_dist2;
+                            // double dist2_err2 = dist2_err * dist2_err;
+                            // double dist2_err3 = dist2_err2 * dist2_err;
+                            // current_pena = wei_dyn * dist2_err3 * omg * step;
+                            // pena += current_pena;
+                            // pena_ball += current_pena;
+                            // dJ_dP = omg * step * wei_dyn * 3 * dist2_err2 * (-2) * Eigen::Vector3d(inv_x * dist_vec(0), inv_y * dist_vec(1), inv_z * dist_vec(2)); // gradient!
+                            // gdC.block<6, 3>(i * 6, 0) += beta0 * dJ_dP.transpose();
+                            // // gdT(i) += omg * wei_dyn * dist2_err3 / innerLoop + dJ_dP.dot(vel - dynobs_pointer->vels[m]) * j / innerLoop;
+                            // gdT(i) += omg * wei_dyn * dist2_err3 / innerLoop + dJ_dP.dot(vel ) * j / innerLoop;
+                            grad_prev_t += dJ_dP.dot(-dynobs_pointer->vels[m]);
+                        }
+                        else if (t_gap < 3.0)
+                        {
+                            Eigen::Vector3d half_len = dynobs_pointer->obs_sizes[m] * 0.5 + conv_vec + acc_vec;
+                            inv_z = 1 / (half_len(2) * half_len(2));
+                            inv_x = 1 / (half_len(0) * half_len(0));
+                            inv_y = 1 / (half_len(1) * half_len(1));
+                            double ellip_dist2 = dist_vec(2) * dist_vec(2) * inv_z + dist_vec(0) * dist_vec(0) * inv_x + dist_vec(1) * dist_vec(1) * inv_y;
+                            double dist2_err = 2.5 - ellip_dist2;
+                            double dist2_err2 = dist2_err * dist2_err;
+                            double dist2_err3 = dist2_err2 * dist2_err;
+                            pena += wei_dyn_acc * dist2_err3 * omg * step;
+                            pena_acc += wei_dyn_acc * dist2_err3 * omg * step;
+                            dJ_dP = wei_dyn_acc * 3 * dist2_err2 * (-2) * Eigen::Vector3d(inv_x * dist_vec(0), inv_y * dist_vec(1), inv_z * dist_vec(2)); // gradient!
+                            gdC.block<6, 3>(i * 6, 0) += beta0 * dJ_dP.transpose() * omg * step;
+                            // gdT(i) += omg * (wei_dyn_acc * dist2_err3 / innerLoop + step * dJ_dP.dot(vel - dynobs_pointer->vels[m]) * j / innerLoop);
+                            gdT(i) += omg * (wei_dyn_acc * dist2_err3 / innerLoop + step * dJ_dP.dot(vel ) * j / innerLoop);
+                            grad_prev_t += dJ_dP.dot(-dynobs_pointer->vels[m]);
+                        }
+
+                        if (i > 0)
+                        {
+                            gdT.head(i).array() += omg * step * grad_prev_t;
+                        }
+                    }
+                    // cout << "mk322" <<endl;
                 }
-        
-      
-                }
-                // cout << "mk322" <<endl;
+
+                for (int m = 0; m < dynobs_pointer->ball_number; m++)
+                {
+                    if (m == 0)
+                    {
+                        t_gap = t_now - dynobs_pointer->ball_time_stamp;
+                    }
+                    // t_gap = t_now - dynobs_pointer->time_stamp;
+                    // cout << "mk321" <<endl<<t_gap<<endl<<m<<"  j: "<<j<<"  innerloop:  "<<innerLoop<<endl;
+                    ct_center = dynobs_pointer->ballpos[m] + t_gap * dynobs_pointer->ballvel[m] + 0.5 * t_gap * t_gap * dynobs_pointer->ballacc[m];
+                    Eigen::Vector3d check_vec = ((ct_center - pos).cwiseAbs() - dynobs_pointer->ball_sizes[m] * 0.5);
+                    if ((ct_center - pos).norm() < dynobs_pointer->ball_sizes[m](0) * 0.5) //((check_vec.array()<0.0).all())
+                    {
+                        double sa = dynobs_pointer->ball_sizes[m].squaredNorm() / 4;
+                        // Eigen::Vector3d dist_vec = pos - ct_center;
+                        //  cout<<"check_vec,ct_center,pos:\n"<<check_vec<<",   \n"<<ct_center<<",   \n"<<pos<<endl<<t_gap<<endl<<dynobs_pointer->ball_sizes[m](0)*0.5<<endl<<(ct_center - pos).norm()<<endl;
+                        Eigen::Vector3d dist_vec = pos - ct_center;
+                        double ellip_dist2 = dist_vec(2) * dist_vec(2) * inv_a2 + (dist_vec(0) * dist_vec(0) + dist_vec(1) * dist_vec(1)) * inv_b2;
+                        double dist2_err = sa - ellip_dist2;
+                        double dist2_err2 = dist2_err * dist2_err;
+                        double dist2_err3 = dist2_err2 * dist2_err;
+                        current_pena = wei_ball * dist2_err3 * omg * step;
+                        pena += current_pena;
+                        pena_ball += current_pena;
+                        Eigen::Vector3d dJ_dP = wei_ball * 3 * dist2_err2 * (-2) * Eigen::Vector3d(inv_b2 * dist_vec(0), inv_b2 * dist_vec(1), inv_a2 * dist_vec(2)); // gradient!
+                        gdC.block<6, 3>(i * 6, 0) += beta0 * dJ_dP.transpose() * omg * step;
+                        gdT(i) += omg * (wei_ball * dist2_err3 / innerLoop + step * dJ_dP.dot(vel - dynobs_pointer->ballvel[m]) * j / innerLoop);
+                        // cout<<"gradient: "<<beta0 * dJ_dP.transpose()* omg * step<<"\n"<<omg * (wei_ball * dist2_err3 / innerLoop + step * dJ_dP.dot(vel - dynobs_pointer->ballvel[m])*j/innerLoop)<<endl;
+                        double grad_prev_t = dJ_dP.dot(-dynobs_pointer->ballvel[m]);
+                        if (i > 0)
+                        {
+                            gdT.head(i).array() += omg * step * grad_prev_t;
+                        }
+                    }
+                    // cout << "mk322" <<endl;
                 }
                 violaVel = vel.squaredNorm() - vMaxSqr;
                 if (violaVel > 0.0)
@@ -573,20 +610,18 @@ private:
                     gradViolaVc = 2.0 * beta1 * vel.transpose();
                     gradViolaVt = 2.0 * alpha * vel.transpose() * acc;
                     gdC.block<6, 3>(i * 6, 0) += omg * step * ci(1) * violaVelPenaD * gradViolaVc;
-                    gdT(i) += omg * (ci(1) * violaVelPenaD * gradViolaVt * step +
-                                     ci(1) * violaVelPena / cons(i));
+                    gdT(i) += omg * ci(1) *(violaVelPenaD * gradViolaVt * step +violaVelPena / cons(i));
                     pena += omg * step * ci(1) * violaVelPena;
-                    
                 }
                 s1 += step;
             }
         }
-        
+
         // end_time = clock();
         // double endtime=(double)(end_time-start_time)/CLOCKS_PER_SEC;
         // compute_time+=endtime;
         cost += pena;
-        
+
         return;
     }
 
@@ -765,7 +800,7 @@ private:
     // Fixed total time
     double sumT;
 
-    //Minimum Jerk Optimizer
+    // Minimum Jerk Optimizer
     MINCO_S3 jerkOpt;
 
     // Temp variables for problem solving
@@ -882,7 +917,7 @@ private:
                                ? (sqrt(2.0 * vecT(i) - 1.0) - 1.0)
                                : (1.0 - sqrt(2.0 / vecT(i) - 1.0));
                     /*
-                    
+
                     t  = 2/[(tau-1)^2+1] tau<0
                        = 1/2[(tau+1)^2+1] tau>=0
                     */
@@ -1173,14 +1208,14 @@ private:
         obj.jerkOpt.evalTrajCostGrad(obj.cons, obj.idxHs, obj.cfgHs, obj.ellipsoid,
                                      obj.safeMargin, obj.vMax, obj.thrAccMin,
                                      obj.thrAccMax, obj.bdrMax, obj.gAcc, obj.chi,
-                                     obj.jerkOpt.cost_total, proxyGradT, obj.gdInPs,obj.plan_t,obj.dynobs_pointer);
+                                     obj.jerkOpt.cost_total, proxyGradT, obj.gdInPs, obj.plan_t, obj.dynobs_pointer);
 
         obj.jerkOpt.cost_total += rh * obj.coarseT.sum();
         proxyGradT.array() += rh;
 
         mergeToCoarseGradT(obj.intervals, proxyGradT);
-        //grad of T
-        //T,P->tau kesi
+        // grad of T
+        // T,P->tau kesi
         addLayerTGrad(t, proxyGradT, obj.softT, obj.sumT, obj.c2dfm);
         addLayerPGrad(p, obj.idxVs, obj.cfgVs, obj.gdInPs, gradp);
 
@@ -1270,9 +1305,9 @@ public:
                       const std::vector<Eigen::MatrixXd> &cfgPolyHs,
                       const double &gridRes,
                       const int &itgSpaces,
-                      const double &horiHalfLen, //0
-                      const double &vertHalfLen, //0
-                      const double &margin,   //0
+                      const double &horiHalfLen, // 0
+                      const double &vertHalfLen, // 0
+                      const double &margin,      // 0
                       const double &vm,
                       const double &minThrAcc,
                       const double &maxThrAcc,
@@ -1291,7 +1326,7 @@ public:
         if (softT)
         {
             rho = rh;
-            sumT = 1.0;//optimize total time
+            sumT = 1.0; // optimize total time
         }
         else
         {
@@ -1308,22 +1343,22 @@ public:
         coarseN = cfgHs.size();
         for (int i = 0; i < coarseN; i++)
         {
-            cfgHs[i].topRows<3>().colwise().normalize();//6*n
+            cfgHs[i].topRows<3>().colwise().normalize(); // 6*n
         }
         if (!extractVs(cfgHs, cfgVs))
         {
             return false;
         }
-        
+
         intervals.resize(coarseN);
-        gridMesh(iState, fState, cfgVs, gridRes, intervals);//cfgVs dimension:2n-1
+        gridMesh(iState, fState, cfgVs, gridRes, intervals); // cfgVs dimension:2n-1
         fineN = intervals.sum();
         cons.resize(fineN);
         cons.setConstant(itgSpaces);
 
         idxVs.resize(fineN - 1);
         idxHs.resize(fineN);
-        dimFreeT = softT ? coarseN : coarseN - 1;//softT is true tau size is n
+        dimFreeT = softT ? coarseN : coarseN - 1; // softT is true tau size is n
         dimFreeP = 0;
         int offset = 0, interval;
         for (int i = 0; i < coarseN; i++)
@@ -1345,7 +1380,7 @@ public:
                 offset++;
             }
         }
-        
+
         chi = w;
         ellipsoid(0) = horiHalfLen;
         ellipsoid(1) = horiHalfLen;
@@ -1374,9 +1409,8 @@ public:
         gdInPs.resize(3, fineN - 1);
         jerkOpt.reset(iniState, finState, fineN);
         //
-        //hzcmy load param
-    
-        
+        // hzcmy load param
+
         return true;
     }
 
@@ -1429,23 +1463,23 @@ public:
         Eigen::Map<Eigen::VectorXd> t(x, dimFreeT);
         Eigen::Map<Eigen::VectorXd> p(x + dimFreeT, dimFreeP);
 
-        setInitial(cfgVs, intervals, coarseT, innerP); //initialize the waypoint and segment T
+        setInitial(cfgVs, intervals, coarseT, innerP); // initialize the waypoint innerP and time vector  coarseT.
 
         backwardT(coarseT, t, softT, c2dfm);
         backwardP(innerP, idxVs, cfgVs, p);
 
         double minObjectivePenalty;
-        lbfgs_params.mem_size = 8; //default
-        lbfgs_params.past = 3; 
+        lbfgs_params.mem_size = 8; // default
+        lbfgs_params.past = 3;
         // lbfgs_params.delta = 1.0e-4;
-        lbfgs_params.g_epsilon = 1.0e-5; //default
-        lbfgs_params.min_step = 1.0e-20; //default
-        lbfgs_params.max_iterations = 100; 
+        lbfgs_params.g_epsilon = 1.0e-5; // default
+        lbfgs_params.min_step = 1.0e-20; // default
+        lbfgs_params.max_iterations = 100;
         lbfgs_params.abs_curv_cond = 0;
         lbfgs_params.delta = relCostTol;
         // cout << "mk2" <<endl;
         // cout << dynobs_pointer << endl;
-        cout << "gcopter dynamic obs number:" << dynobs_pointer->dyn_number <<"///"<<dynobs_pointer->ball_number<<endl;
+        cout << "gcopter dynamic obs number:" << dynobs_pointer->dyn_number << "///" << dynobs_pointer->ball_number << endl;
         lbfgs::lbfgs_optimize(dimFreeT + dimFreeP,
                               x,
                               &minObjectivePenalty,
@@ -1457,16 +1491,49 @@ public:
 
         // cout << "mk3" <<endl;
 
-        forwardT(t, coarseT, softT, sumT, c2dfm);
+        forwardT(t, coarseT, softT, sumT, c2dfm);  //update final coarseT
         splitToFineT(coarseT, intervals, fineT);
-        forwardP(p, idxVs, cfgVs, innerP);
+        forwardP(p, idxVs, cfgVs, innerP);  //update the innerP
 
-        jerkOpt.generate(innerP, fineT);
-        traj = jerkOpt.getTraj();
-        cout << "Total cost (include time): " <<  jerkOpt.cost_total << "\npena: "<< jerkOpt.pena<< "\npena_dynobjects: "<< jerkOpt.pena_ball<< "\npena_dyn_accdistrib: "<< jerkOpt.pena_acc<<endl;
+        cout << "Total cost (include time): " << jerkOpt.cost_total << "\npena: " << jerkOpt.pena << "\npena_staticObs: " << jerkOpt.pena_sta << "\npena_dynobjects: " << jerkOpt.pena_ball << "\npena_dyn_accdistrib: " << jerkOpt.pena_acc << endl;
         // std::cout<<"-------------------------------------\n";
         // std::cout<<"total time is "<<jerkOpt.compute_time<<" s";
+
+        if (jerkOpt.pena_sta + jerkOpt.pena_ball > 0.5)
+        {
+            cout << "Optimized trajectory is not safe?"<<endl;
+        }
+        //     cout << "Traj re-optimize!" << endl;
+        //     setInitial(cfgVs, intervals, coarseT, innerP); // initialize the waypoint innerP and time vector  coarseT.
+
+        //     backwardT(coarseT, t, softT, c2dfm);
+        //     backwardP(innerP, idxVs, cfgVs, p);
+        //     double pena_coe = 2;
+        //     jerkOpt.dyn_coe = 6.0;
+        //     chi(0) *= pena_coe;
+        //     rho = 1.0;
+        //     chi(1) *= 0.5;
+        //     chi(2) *= 1.0;
+        //     lbfgs_params.delta *= 0.01;
+        //     lbfgs::lbfgs_optimize(dimFreeT + dimFreeP,
+        //                           x,
+        //                           &minObjectivePenalty,
+        //                           &SE3GCOPTER::objectiveFunc,
+        //                           nullptr,
+        //                           nullptr,
+        //                           this,
+        //                           &lbfgs_params);
+
+        //     // cout << "mk3" <<endl;
+
+        //     forwardT(t, coarseT, softT, sumT, c2dfm); // update final coarseT
+        //     splitToFineT(coarseT, intervals, fineT);
+        //     forwardP(p, idxVs, cfgVs, innerP); // update the innerP
+        //     cout << "pena_staticObs: " << jerkOpt.pena_sta / pena_coe << "\npena_dynobjects: " << jerkOpt.pena_ball  / pena_coe << "\npena_dyn_accdistrib: " << jerkOpt.pena_acc / pena_coe << endl;
+        // }
         delete[] x;
+        jerkOpt.generate(innerP, fineT); // generate final trajectory
+        traj = jerkOpt.getTraj();
         return jerkOpt.getTrajJerkCost();
     }
 };

@@ -57,7 +57,16 @@ void TrajectoryGenerator_fast::replan_traj(Vector3d &start, Vector3d &vi, Vector
   if (config.yawplan && dynobs_pointer->dyn_number > 0)
   {
     yaw_plan_tm = ros::Time::now().toSec();
+  try
+  {
     Yaw_plan(yaw_plan_tm);
+  }
+  catch(const std::exception& e)
+  {
+    std::cerr << "caught error: "<<e.what() << '\n';
+    yaw_plan.clear();
+  }
+  
     yaw_timeout = false;
   }
 }
@@ -73,8 +82,8 @@ void TrajectoryGenerator_fast::Yaw_plan(double plan_t)
   Vector2d v1, v2;
   int rows = (min(total_t, plan_t - plan_tm + total_t / 2) - (plan_t - plan_tm)) / delta_t_yaw + 1;
   int cols = config.max_yaw_range / 0.175 + 1;
-  double v_psi0, v_psi;
-  double M_yaw[rows][cols], M_yaw1[rows][cols], M_vis_score[rows][cols], M_score[rows][cols];
+  double v_psi;
+  double M_yaw[rows][cols], M_vis_score[rows][cols], M_score[rows][cols];
 
   // vector<vector<Matrix<double, 3, 5>>> M_camera_vertex;
   // vector<Matrix<double, 3, 5>> fov_plan;
@@ -85,6 +94,8 @@ void TrajectoryGenerator_fast::Yaw_plan(double plan_t)
   // Matrix<int, rows, cols> M_parent;
   v1 << 1.0, 0.0;
   int row = 0, col = 0;
+  cout << "yaw plan begin" << endl;
+
   for (double ti = plan_t - plan_tm; ti < min(total_t, plan_t - plan_tm + total_t / 2); ti += delta_t_yaw)
   {
 
@@ -169,7 +180,7 @@ void TrajectoryGenerator_fast::Yaw_plan(double plan_t)
   {
     for (col = 0; col < cols; col++)
     {
-      int parent;
+      int parent=0;
       double tmp_score;
       score = 0;
 
@@ -226,7 +237,7 @@ inline bool TrajectoryGenerator_fast::inFOV(Matrix<double, 3, 5> camera_vertex, 
 Vector2d TrajectoryGenerator_fast::getYaw(double t)
 {
 
-  int indx = (t - yaw_plan_tm) / delta_t_yaw;
+  uint indx = (t - yaw_plan_tm) / delta_t_yaw;
   Vector2d desire_yaw; // yaw,yaw_rate
   double yaw_gap;
   Vector2d v1, v2;
@@ -243,27 +254,14 @@ Vector2d TrajectoryGenerator_fast::getYaw(double t)
   // std::cout<<"Set yaw begin "<< indx<<" "<<yaw_plan.size()<<"\n"<<((yaw_plan.size()>0)?yaw_plan.back():0)<<" "<<dynobs_pointer->dyn_number<< " "<<(yaw_plan.size() - 1)<<std::endl;
   if ((indx + 2) > yaw_plan.size() || !config.yawplan || dynobs_pointer->dyn_number == 0)
   {
-    //  std::cout<<"total_t: "<<total_t<<" "<<min(t,total_t-0.2)<<" ";
-    //  std::cout<<traj.getPos(total_t)<<std::endl;
     yaw_timeout = true;
     desire_yaw(0) = v_psi;
     desire_yaw(1) = 0;
-    //  v2 = traj.getVel(min(t+1+0.02,total_t)).head(2);
-    //  v_psi=acos(v1.dot(v2) /(v1.norm()*v2.norm()));
-    //   if (v2(1)<0)
-    //   {v_psi = -v_psi;}
-
-    //  yaw_gap =v_psi - desire_yaw(0);
-    //  if (abs(yaw_gap)>M_PI)
-    //  {
-    //    yaw_gap = copysign((2*M_PI-abs(yaw_gap)),desire_yaw(0));
-    //  }
-    // desire_yaw(1) = 2*(yaw_gap)/0.02;
-    // std::cout<<"Set yaw-1:\n"<< desire_yaw<<std::endl;
-    return desire_yaw;
   }
   else
   {
+    try {
+
     yaw_gap = (yaw_plan[indx + 1] - yaw_plan[indx]);
     if (abs(yaw_gap) > M_PI)
     {
@@ -273,19 +271,18 @@ Vector2d TrajectoryGenerator_fast::getYaw(double t)
     desire_yaw(1) = 0;
     if (abs(desire_yaw(0)) > M_PI)
       cout << "yaw out range! " << desire_yaw(0) << endl;
-    // desire_yaw(0) = desire_yaw(0)
-    // desire_yaw = clip(v_psi
-    // t += 0.02;
-    // yaw_gap = yaw_plan[indx] + (t - indx * delta_t_yaw) / delta_t_yaw * (yaw_plan[indx + 1] - yaw_plan[indx]) - desire_yaw(0);
-    // if (abs(yaw_gap) > M_PI)
-    // {
-    //   yaw_gap = copysign((2 * M_PI - abs(yaw_gap)), desire_yaw(0));
-    // }
-    // desire_yaw(1) = 2 * yaw_gap / 0.02;
     std::cout << "Set yaw-2:\n"
               << desire_yaw(0) << " " << yaw_plan[indx + 1] << " " << yaw_plan[indx] << std::endl;
-    return desire_yaw;
+    } 
+    catch (...) { // exception should be caught by reference
+        cout << "get yaw exception " << "\n";
+    yaw_timeout = true;
+    desire_yaw(0) = v_psi;
+    desire_yaw(1) = 0;
+    }
+    
   }
+return desire_yaw;
 }
 
 void TrajectoryGenerator_fast::check_wps_in_polyH(void)
@@ -332,9 +329,8 @@ bool TrajectoryGenerator_fast::check_polyH_safe(const double plan_t, const Matri
   double start_t1 = start_t - plan_t;
   //  check_sfc_ind = 0;
   Vector3d pos;
-  double dt = 0.02;
+  double dt = 0.1;
   Polyhedron3D poly;
-  Vec3f pt;
   pt[0] = start(0);
   pt[1] = start(1);
   pt[2] = start(2);
@@ -369,6 +365,7 @@ bool TrajectoryGenerator_fast::check_polyH_safe(const double plan_t, const Matri
     gen_polyhedrons(obs_pointer);
     last_check_pos = start;
     last_check_time = ros::Time::now();
+    last_traj_polyH_check = true;
   }
   // if_config = true;
 
@@ -414,7 +411,7 @@ bool TrajectoryGenerator_fast::check_polyH_safe(const double plan_t, const Matri
     pt[2] = pos(2);
     if (j == start_t1 + dt)
     {
-      for (auto kk = 0; kk < decompPolys.size(); kk++)
+      for (uint kk = 0; kk < decompPolys.size(); kk++)
       {
         check_sfc_ind = kk;
         poly = decompPolys[check_sfc_ind];
@@ -422,14 +419,15 @@ bool TrajectoryGenerator_fast::check_polyH_safe(const double plan_t, const Matri
           break;
       }
     }
-    while (j > start_t1 + dt && !poly.inside(pt, config.safeMargin) && (last_traj_polyH_check || !poly.inside(pt, 0)))
+    while (j > start_t1 + dt && !poly.inside(pt, 0.5*config.safeMargin) && (last_traj_polyH_check || !poly.inside(pt, 0)))
     {
       check_sfc_ind += 1;
       if (check_sfc_ind > decompPolys.size() - 1)
       {
         cout << "old traj SFC check fail! Traj time:" << j << "\ncheck pos:\n"
-             << pos << "\nindex:" << check_sfc_ind << endl;
+             << pt << "\nindex:" << check_sfc_ind << "\nlast_traj_polyH_check:"<<last_traj_polyH_check<<"\n inside poly: "<<poly.inside(pt, 0)<<endl;
         last_traj_polyH_check = false;
+        fail_pt = pt;
         return false;
       }
       poly = decompPolys[check_sfc_ind];
@@ -438,8 +436,8 @@ bool TrajectoryGenerator_fast::check_polyH_safe(const double plan_t, const Matri
       // return false;}
     }
   }
-  last_traj_polyH_check = true;
-  cout << "old traj is safe for dyn obs, and all in new corridor! " << dynobs_pointer->dyn_number << " " << ros::Time::now().toSec() - dynobs_pointer->time_stamp << endl;
+  
+  // cout << "old traj is safe for dyn obs, and all in new corridor! " << dynobs_pointer->dyn_number << " " << ros::Time::now().toSec() - dynobs_pointer->time_stamp << endl;
   return true;
 }
 
@@ -449,7 +447,7 @@ bool TrajectoryGenerator_fast::last_jointPolyH_check(Vector3d ct_pos)
   double dis2goal = (wPs.back() - ct_pos).norm();
   if ((decompPolys.back().inside(ct_pos, 0) && dis2goal < config.horizon * 0.7) || dis2goal < 0.4 * config.horizon) // if the initial   && !decompPolys[decompPolys.size()-2].inside(wPs[0])
   {
-    cout << "pos in the last polyH: " << decompPolys.back().inside(ct_pos, 0) << "  " << dis2goal << endl;
+    // cout << "pos in the last polyH: " << decompPolys.back().inside(ct_pos, 0) << "  " << dis2goal << endl;
     return true;
   }
   else
