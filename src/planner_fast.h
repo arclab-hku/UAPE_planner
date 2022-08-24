@@ -180,5 +180,5 @@ public:
     void get_desire(double timee, Vector3d &p_d, Vector3d &v_d, Vector3d &a_d, Vector3d &p_d_yaw);
     void get_traj_samples(MatrixXd &sp_pos, MatrixXd &sp_vel, MatrixXd &sp_acc, double start_t);
     Vector2d getYaw(double t);
-    bool last_jointPolyH_check(Vector3d ct_pos);
+    bool last_jointPolyH_check(Vector3d ct_pos, dynobs_tmp *dynobs);
 };

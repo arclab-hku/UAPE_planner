@@ -360,7 +360,8 @@ bool TrajectoryGenerator_fast::check_polyH_safe(const double plan_t, const Matri
   //   cout<<"old corridor is not safe for new waypoints!"<<endl;
   //   }
   bool in_first_polyh = decompPolys.front().inside(pt, 2 * config.safeMargin);
-  if (pcl_update || path_replan || !in_first_polyh || (last_check_pos - start).norm() > config.sfck_td || (ros::Time::now() - last_check_time).toSec() > config.sfck_td)
+  //pcl_update || 
+  if (path_replan || !in_first_polyh || (last_check_pos - start).norm() > config.sfck_td || (ros::Time::now() - last_check_time).toSec() > config.sfck_td)
   {
     gen_polyhedrons(obs_pointer);
     last_check_pos = start;
@@ -375,7 +376,7 @@ bool TrajectoryGenerator_fast::check_polyH_safe(const double plan_t, const Matri
     Yaw_plan(yaw_plan_tm);
     yaw_timeout = false;
   }
-  if (path_replan && (traj.getPos(total_t) - wPs.back()).norm() > config.horizon * 0.3)
+  if (path_replan && (traj.getPos(total_t) - wPs.back()).norm() > config.horizon * 0.2)
   {
     cout << "Path replanned, so traj replan. Traj end and goal distance:" << (traj.getPos(total_t) - wPs.back()).norm() << endl;
     return false;
@@ -441,11 +442,11 @@ bool TrajectoryGenerator_fast::check_polyH_safe(const double plan_t, const Matri
   return true;
 }
 
-bool TrajectoryGenerator_fast::last_jointPolyH_check(Vector3d ct_pos)
+bool TrajectoryGenerator_fast::last_jointPolyH_check(Vector3d ct_pos,dynobs_tmp *dynobs)
 {
   //  cout << "wPs size: " << wPs.size()<<endl;
   double dis2goal = (wPs.back() - ct_pos).norm();
-  if ((decompPolys.back().inside(ct_pos, 0) && dis2goal < config.horizon * 0.7) || dis2goal < 0.4 * config.horizon) // if the initial   && !decompPolys[decompPolys.size()-2].inside(wPs[0])
+  if ((decompPolys.back().inside(ct_pos, 0) && dis2goal < config.horizon * 0.7) || dis2goal < 0.4 * config.horizon || (dynobs_pointer->dyn_number && dis2goal < 0.8 * config.horizon) ) // if the initial   && !decompPolys[decompPolys.size()-2].inside(wPs[0])
   {
     // cout << "pos in the last polyH: " << decompPolys.back().inside(ct_pos, 0) << "  " << dis2goal << endl;
     return true;

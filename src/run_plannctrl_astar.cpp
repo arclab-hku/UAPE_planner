@@ -343,14 +343,13 @@ int main(int argc, char **argv)
       // cout<<"if initial: "<<if_initial<<endl;
       camera_vertex = (state.Rota * camera_vertex_b).array().colwise() + state.P_E.array();
       double dis2goal = (g_goal - ct_pos).norm();
-
       if (dis2goal > 1.0 && flying.obs_pointer->size() > 0) // && !if_initial
       {
         // cout << "The obs pointer:\n" << flying.obs_pointer << "---pcl size: "<< flying.obs_pointer->size()<< endl;
         // cout<<"goal:"<<goal<<" "<<g_goal<<endl;
         chrono::high_resolution_clock::time_point tic = chrono::high_resolution_clock::now();
         // cout << "The obs pointer:\n" << flying.obs_pointer << "---pcl size: "<< flying.obs_pointer->size()<< endl;
-        if (!kino_path_finder_->checkOldPath(waypoints, ct_pos) || (reference.last_jointPolyH_check(ct_pos) && !if_reach))
+        if (!kino_path_finder_->checkOldPath(waypoints, ct_pos) || (reference.last_jointPolyH_check(ct_pos,flying.dynobs_pointer) && !if_reach))
         {
           cout << "Ready to search" << endl;
 
