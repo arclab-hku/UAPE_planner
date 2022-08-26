@@ -81,7 +81,7 @@ void TrajectoryGenerator_fast::Yaw_plan(double plan_t)
   double thrust, t_base, score;
   Vector2d v1, v2;
   int rows = (min(total_t, plan_t - plan_tm + total_t / 2) - (plan_t - plan_tm)) / delta_t_yaw + 1;
-  int cols = config.max_yaw_range / 0.175 + 1;
+  int cols = int(config.max_yaw_range / 0.175 + 1);
   double v_psi;
   double M_yaw[rows][cols], M_vis_score[rows][cols], M_score[rows][cols];
 
@@ -90,13 +90,17 @@ void TrajectoryGenerator_fast::Yaw_plan(double plan_t)
   int M_parent[rows][cols];
   double sp_yaw1, sp_theta, sp_phi;
   yaw_plan.clear();
+  if (rows < 3)
+  {
+    return;
+  }
   // Matrix<double, rows, cols> M_yaw, M_yaw1, M_vis_score, M_score;
   // Matrix<int, rows, cols> M_parent;
   v1 << 1.0, 0.0;
   int row = 0, col = 0;
   cout << "yaw plan begin" << endl;
 
-  for (double ti = plan_t - plan_tm; ti < min(total_t, plan_t - plan_tm + total_t / 2); ti += delta_t_yaw)
+  for (double ti = plan_t - plan_tm; ti <= min(total_t, plan_t - plan_tm + total_t / 2); ti += delta_t_yaw)
   {
 
     t_base = plan_tm - dynobs_pointer->time_stamp + ti;
@@ -124,8 +128,12 @@ void TrajectoryGenerator_fast::Yaw_plan(double plan_t)
       row++;
       continue;
     }
-    for (double sp_yaw = v_psi - config.max_yaw_range / 2; sp_yaw < v_psi + config.max_yaw_range / 2; sp_yaw += 0.175)
+    for (double sp_yaw = v_psi - config.max_yaw_range / 2; sp_yaw <= v_psi + config.max_yaw_range / 2; sp_yaw += 0.175)
     {
+      if (row>rows-1 || col > cols-1)
+      {
+        break;
+      }
       if (row == 0)
       {
         M_vis_score[row][col] = 1;
@@ -133,6 +141,7 @@ void TrajectoryGenerator_fast::Yaw_plan(double plan_t)
         M_score[row][col] = 3;
         continue;
       }
+
 
       if (sp_yaw > M_PI)
         sp_yaw1 = sp_yaw - 2 * M_PI;
@@ -175,12 +184,12 @@ void TrajectoryGenerator_fast::Yaw_plan(double plan_t)
   // cout << "yaw plan begin" << endl;
   // std::cout<<"Got the vis score matrix: "<<M_vis_score<<std::endl;
   double max_total_score = 0;
-  int choosed_col;
+  int choosed_col = int(cols/2);
   for (row = 1; row < rows; row++)
   {
     for (col = 0; col < cols; col++)
     {
-      int parent=0;
+      int parent=int(cols/2);
       double tmp_score;
       score = 0;
 
