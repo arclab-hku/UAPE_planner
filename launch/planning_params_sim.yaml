@@ -6,9 +6,15 @@
 # 21 18
 goal: [-14.0,14.0,1.3]
 #goal: [6.6,0.0,1.5]
+WaypointsNum: 0
+Waypoints: [-14.0,14.0,1.3,
+                          14.0,14.0,1.3,
+                          14.0,-14.0,1.3,
+                          -14.0,-14.0,1.3,
+                          0.0,0.0,1.3]
 UseRcGuide: false
-ReturnHome: 0    #the one-way trip number. should >= 2 to active retrun home mode. If = 2, drone fly to the goal and return home.
-if_RandomGoal: true
+ReturnHome: 2    #the one-way trip number. should >= 2 to active retrun home mode. If = 2, drone fly to the goal and return home.
+if_RandomGoal: false
 if_debug: false
 UseRawPcl: false   # if use the camera raw pcl for obstacle avoidance, only for static environment
 UseRawDepth: false

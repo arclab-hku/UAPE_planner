@@ -243,7 +243,7 @@ inline bool TrajectoryGenerator_fast::inFOV(Matrix<double, 3, 5> camera_vertex, 
 {
   return !((ct_center.head(3) - camera_vertex.col(0)).dot((camera_vertex.col(0) - camera_vertex.col(1)).cross(camera_vertex.col(0) - camera_vertex.col(2))) < 0 || (ct_center.head(3) - camera_vertex.col(0)).dot((camera_vertex.col(0) - camera_vertex.col(2)).cross(camera_vertex.col(0) - camera_vertex.col(3))) < 0 || (ct_center.head(3) - camera_vertex.col(0)).dot((camera_vertex.col(0) - camera_vertex.col(3)).cross(camera_vertex.col(0) - camera_vertex.col(4))) < 0 || (ct_center.head(3) - camera_vertex.col(0)).dot((camera_vertex.col(0) - camera_vertex.col(4)).cross(camera_vertex.col(0) - camera_vertex.col(1))) < 0 || (ct_center.head(3) - camera_vertex.col(1)).dot((camera_vertex.col(1) - camera_vertex.col(4)).cross(camera_vertex.col(1) - camera_vertex.col(2))) < 0);
 }
-Vector2d TrajectoryGenerator_fast::getYaw(double t)
+Vector2d TrajectoryGenerator_fast::getYaw(double t,double ct_yaw)
 {
 
   uint indx = (t - yaw_plan_tm) / delta_t_yaw;
@@ -264,8 +264,15 @@ Vector2d TrajectoryGenerator_fast::getYaw(double t)
   if ((indx + 2) > yaw_plan.size() || !config.yawplan || dynobs_pointer->dyn_number == 0)
   {
     yaw_timeout = true;
-    desire_yaw(0) = v_psi;
+    int sig = ((v_psi - ct_yaw)> 0) - ((v_psi - ct_yaw) < 0);
     desire_yaw(1) = 0;
+    if (abs(v_psi - ct_yaw) > 0.6)
+    {
+    double yaw_rate = abs(v_psi - ct_yaw) > 3.14159 ? -sig * 0.6 : sig * 0.6;
+    desire_yaw(0) = ct_yaw + yaw_rate;
+    }
+    else
+    desire_yaw(0) = v_psi;
   }
   else
   {
